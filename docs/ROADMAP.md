@@ -1,6 +1,6 @@
 # Roadmap
 
-This is the roadmap for the fork at `al-kheder/oh-my-mermaid`. The evidence behind each item is in [AUDIT.md](./AUDIT.md), and the risk IDs (R1, R2, …) refer to its register.
+This is the roadmap for the fork at `al-kheder/omm`. The evidence behind each item is in [AUDIT.md](./AUDIT.md), and the risk IDs (R1, R2, …) refer to its register.
 
 **Status values:** `proposed` · `approved` · `in progress` · `blocked` · `done` · `deferred`
 
@@ -75,9 +75,9 @@ Detect which files changed since the last scan and update only the affected pers
 
 All the pointers to the upstream project are gone. The fork's identity is defined in one place, `src/lib/package-info.ts`.
 
-- **npm package:** renamed to `@al-kheder/oh-my-mermaid`. The command is still `omm`. Until the package is published, it installs from GitHub with `npm install -g github:al-kheder/oh-my-mermaid`. A new `prepare` script builds it during that install.
-- **Claude Code setup:** `omm setup` installs the plugin from this fork's marketplace (`al-kheder/oh-my-mermaid`, marketplace name `al-kheder-omm`).
-- **Links:** every URL (`package.json`, `.claude-plugin/*.json`, all READMEs, `cursor.ts`) now points to `github.com/al-kheder/oh-my-mermaid`.
+- **npm package:** renamed to `@al-kheder/oh-my-mermaid`. The command is still `omm`. Until the package is published, it installs from GitHub with `npm install -g github:al-kheder/omm`. A new `prepare` script builds it during that install.
+- **Claude Code setup:** `omm setup` installs the plugin from this fork's marketplace (`al-kheder/omm`, marketplace name `al-kheder-omm`).
+- **Links:** every URL (`package.json`, `.claude-plugin/*.json`, all READMEs, `cursor.ts`) now points to `github.com/al-kheder/omm`.
 - **Cloud:** there is no default server any more. Cloud commands only work if `OMM_API_URL` is set.
 - **Release workflow:** `release.yml` reads the package name from `package.json`.
 - **Licence:** `LICENSE` keeps the upstream copyright notice, which MIT requires, and adds the fork's own line.

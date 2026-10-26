@@ -25,7 +25,7 @@
 터미널에 붙여넣기:
 
 ```bash
-npm install -g github:al-kheder/oh-my-mermaid && omm setup
+npm install -g github:al-kheder/omm && omm setup
 ```
 
 AI 코딩 도구를 열고 `/omm-scan` 스킬을 실행:
@@ -127,8 +127,8 @@ omm login && omm link && omm push
 ## 개발 & 기여
 
 ```bash
-git clone https://github.com/al-kheder/oh-my-mermaid.git
-cd oh-my-mermaid
+git clone https://github.com/al-kheder/omm.git
+cd omm
 npm install && npm run build
 npm test
 ```

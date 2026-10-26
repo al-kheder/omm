@@ -25,7 +25,7 @@
 Aşağıdaki komutu terminale yapıştırın:
 
 ```bash
-npm install -g github:al-kheder/oh-my-mermaid && omm setup
+npm install -g github:al-kheder/omm && omm setup
 ```
 
 Ardından kullandığınız AI kodlama aracını açın ve `/omm-scan` yeteneğini çalıştırın:
@@ -127,8 +127,8 @@ Bkz. [docs/ROADMAP.md](./docs/ROADMAP.md).
 ## Geliştirme ve Katkı
 
 ```bash
-git clone https://github.com/al-kheder/oh-my-mermaid.git
-cd oh-my-mermaid
+git clone https://github.com/al-kheder/omm.git
+cd omm
 npm install && npm run build
 npm test
 ```

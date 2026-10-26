@@ -16,11 +16,11 @@ Cloud sync is optional and off by default. It only works when the `OMM_API_URL` 
 Ensure the `omm` CLI is available:
 
 ```bash
-command -v omm || npm install -g github:al-kheder/oh-my-mermaid
+command -v omm || npm install -g github:al-kheder/omm
 ```
 
 If the install command fails (permission denied), tell the user:
-"Please run `npm install -g github:al-kheder/oh-my-mermaid` in your terminal, then try again."
+"Please run `npm install -g github:al-kheder/omm` in your terminal, then try again."
 
 ## Workflow
 

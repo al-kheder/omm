@@ -23,7 +23,7 @@
 Paste this in your terminal:
 
 ```bash
-npm install -g github:al-kheder/oh-my-mermaid && omm setup
+npm install -g github:al-kheder/omm && omm setup
 ```
 
 Then open your AI coding tool and use the `/omm-scan` skill:
@@ -125,8 +125,8 @@ See [docs/ROADMAP.md](./docs/ROADMAP.md).
 ## Development & Contributing
 
 ```bash
-git clone https://github.com/al-kheder/oh-my-mermaid.git
-cd oh-my-mermaid
+git clone https://github.com/al-kheder/omm.git
+cd omm
 npm install && npm run build
 npm test
 ```

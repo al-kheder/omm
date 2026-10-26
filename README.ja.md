@@ -25,7 +25,7 @@
 ターミナルに貼り付けてください：
 
 ```bash
-npm install -g github:al-kheder/oh-my-mermaid && omm setup
+npm install -g github:al-kheder/omm && omm setup
 ```
 
 AIコーディングツールを開き、`/omm-scan`スキルを実行：
@@ -127,8 +127,8 @@ omm login && omm link && omm push
 ## 開発 & 貢献
 
 ```bash
-git clone https://github.com/al-kheder/oh-my-mermaid.git
-cd oh-my-mermaid
+git clone https://github.com/al-kheder/omm.git
+cd omm
 npm install && npm run build
 npm test
 ```

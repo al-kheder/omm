@@ -25,7 +25,7 @@
 在终端中粘贴：
 
 ```bash
-npm install -g github:al-kheder/oh-my-mermaid && omm setup
+npm install -g github:al-kheder/omm && omm setup
 ```
 
 打开你的 AI 编码工具，使用 `/omm-scan` 技能：
@@ -127,8 +127,8 @@ omm login && omm link && omm push
 ## 开发 & 贡献
 
 ```bash
-git clone https://github.com/al-kheder/oh-my-mermaid.git
-cd oh-my-mermaid
+git clone https://github.com/al-kheder/omm.git
+cd omm
 npm install && npm run build
 npm test
 ```

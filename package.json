@@ -14,13 +14,13 @@
     ".claude-plugin/",
     "LICENSE"
   ],
-  "homepage": "https://github.com/al-kheder/oh-my-mermaid",
+  "homepage": "https://github.com/al-kheder/omm",
   "bugs": {
-    "url": "https://github.com/al-kheder/oh-my-mermaid/issues"
+    "url": "https://github.com/al-kheder/omm/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/al-kheder/oh-my-mermaid.git"
+    "url": "git+https://github.com/al-kheder/omm.git"
   },
   "keywords": [
     "mermaid",

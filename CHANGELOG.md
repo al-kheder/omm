@@ -37,7 +37,7 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 ### Changed
 
 - **Fork identity:**
-  - The package is now `@al-kheder/oh-my-mermaid`. Until it is published to npm, install it with `npm install -g github:al-kheder/oh-my-mermaid`.
+  - The package is now `@al-kheder/oh-my-mermaid`. Until it is published to npm, install it with `npm install -g github:al-kheder/omm`.
   - `omm setup` for Claude Code uses this fork's plugin marketplace.
   - `omm update` reinstalls from the fork.
 - **The viewer works offline.** `dagre`, `marked` and `DOMPurify` ship with the package (pinned versions) instead of loading from a CDN.
