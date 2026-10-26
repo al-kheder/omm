@@ -2,7 +2,28 @@
 
 All notable changes to this fork. The format follows [Keep a Changelog](https://keepachangelog.com/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — v0.2.1 Reliability
+## [Unreleased] — v0.3.0 Diagram types
+
+### Changed
+
+- **Development uses pnpm** (pinned to `pnpm@10.34.6` via `packageManager`). Run `corepack enable`, then `pnpm install`.
+  - `pnpm-lock.yaml` replaces `package-lock.json`. It was converted with `pnpm import`, so every dependency version is unchanged.
+  - CI and the release workflow use pnpm.
+  - `check-version-sync` no longer reads a lockfile.
+  - Installing the CLI is unchanged: `npm install -g github:al-kheder/omm` still works, because `prepare` now calls `tsup` directly instead of `npm run build`.
+
+### Added
+
+- **ER diagrams (`erDiagram`)** for data models such as database schemas, ORM models and file formats.
+  - **Parsing:** entities, aliases (`product["Product"]`), attributes with types, `PK`/`FK`/`UK` keys and comments, relationships with cardinality (`||`, `|o`, `}|`, `}o` …), identifying (`--`) and non-identifying (`..`) lines, and `direction`.
+  - **`omm validate`:** reports ER syntax errors with line numbers (`er-syntax`), warns about entities without relationships (`er-orphan-entity`), and counts entities for the size check.
+  - **`omm diff`:** reports added and removed entities, relationships and attributes (`added_attributes` / `removed_attributes` on `DiffResult`).
+  - **Viewer:** draws entities as boxes with one row per attribute (key badges, types), relationships as lines (dashed for non-identifying) with cardinality text at both ends. ER diagrams can also be nested inside flowcharts.
+  - **`/omm-scan`:** new `data-model` perspective and "ER Diagram Rules".
+- **One shared parser:** the ER parser in `src/lib/er.ts` is bundled for the browser as `/vendor/omm.js`, so the CLI and the viewer read diagrams the same way.
+- **This repo's own docs:** a new `data-model` perspective describing the `.omm/` storage format.
+
+## v0.2.1 Reliability (unreleased)
 
 ### Breaking changes
 

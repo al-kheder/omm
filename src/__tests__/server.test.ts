@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { createViewerServer, isLoopbackHost, DEFAULT_HOST } from '../server/index.js';
 
@@ -58,6 +60,16 @@ describe('viewer server', () => {
     expect(res.headers['content-type']).toMatch(/javascript/);
     expect(res.body.length).toBeGreaterThan(1000);
   });
+
+  // dist/ exists after `pnpm install` (the prepare script builds) or `pnpm build`
+  it.skipIf(!fs.existsSync(path.join(__dirname, '..', '..', 'dist', 'omm-viewer.global.js')))(
+    'serves the shared parser bundle as /vendor/omm.js',
+    async () => {
+      const res = await request('/vendor/omm.js');
+      expect(res.status).toBe(200);
+      expect(res.body).toContain('OmmViewer');
+    },
+  );
 
   it('serves nothing else under /vendor/', async () => {
     expect((await request('/vendor/yaml.js')).status).toBe(404);

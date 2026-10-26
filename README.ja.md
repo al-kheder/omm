@@ -76,6 +76,8 @@ AIがコードベースを分析し、**パースペクティブ**を生成し�
 
 各エレメントは最大7つのフィールドを持ちます：`description`、`diagram`、`context`、`constraint`、`concern`、`todo`、`note`。
 
+ダイアグラムはフローチャート（`graph` / `flowchart`）、またはデータベーススキーマなどのデータモデル用のER図（`erDiagram`）です。どちらも `omm validate` で検証され、ビューアーで表示されます。
+
 ## CLI
 
 ```bash
@@ -129,8 +131,9 @@ omm login && omm link && omm push
 ```bash
 git clone https://github.com/al-kheder/omm.git
 cd omm
-npm install && npm run build
-npm test
+corepack enable   # provides the pinned pnpm version
+pnpm install && pnpm build
+pnpm test
 ```
 
 IssueとPRを歓迎します。[Conventional Commits](https://www.conventionalcommits.org/)を使用してください。

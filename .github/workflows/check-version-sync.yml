@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - package.json
-      - package-lock.json
       - .claude-plugin/plugin.json
       - .claude-plugin/marketplace.json
       - scripts/sync-version.js
@@ -20,4 +19,4 @@ jobs:
           node-version: 20
 
       - name: Verify manifests match package.json version
-        run: npm run check-version-sync
+        run: node scripts/check-version-sync.js

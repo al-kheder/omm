@@ -1,0 +1,1 @@
+`meta.yaml`, written automatically on every field write by `writeNodeField` in `src/lib/store.ts`. `prev_diagram` holds the previous diagram so `omm diff` can compare versions; `git_commit` and `git_branch` record the baseline for each element. Older files without `kind`/`title` are upgraded on the next write.

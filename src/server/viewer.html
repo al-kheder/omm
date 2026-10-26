@@ -7,6 +7,7 @@
 <script src="/vendor/dagre.js"></script>
 <script src="/vendor/marked.js"></script>
 <script src="/vendor/dompurify.js"></script>
+<script src="/vendor/omm.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -468,6 +469,10 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   const data = classesData[cls];
   if (!data?.diagram) return null;
 
+  if (window.OmmViewer && OmmViewer.detectDiagramType(data.diagram) === 'er') {
+    return renderErGroup(data.diagram, scopedPath);
+  }
+
   const parsed = parseFlowchart(data.diagram);
   const {rankdir, nodes, edges} = parsed;
   if (!nodes.length) return null;
@@ -699,6 +704,107 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   }
 
   return { svgContent: svg, W, H, labelOverlay };
+}
+
+// ── ER diagram renderer ───────────────────────────────────
+// Entities are boxes with a header and one row per attribute; relationships are
+// lines (dashed = non-identifying) with cardinality text at both ends.
+const ER_KEY_COLORS = { PK: '#d4a017', FK: '#60a5fa', UK: '#a78bfa' };
+
+function renderErGroup(text, scopedPath) {
+  const er = OmmViewer.parseErDiagram(text);
+  const entities = [...er.entities.values()];
+  if (!entities.length) return null;
+
+  const PAD_L = 16, PAD_R = 20, PAD_T = 20, PAD_B = 16;
+  const HEAD_H = 26, ROW_H = 18, CELL_PAD = 10;
+  const th = theme();
+  const st = nodeStyle({});
+  const headFont = '600 12px Inter,system-ui', rowFont = '11px Inter,system-ui', monoFont = "10px 'SF Mono','Fira Code',monospace";
+
+  // Measure entity boxes
+  const dims = {};
+  for (const ent of entities) {
+    const title = ent.alias || ent.name;
+    let keyW = 0, nameW = 0, typeW = 0;
+    for (const a of ent.attributes) {
+      if (a.keys.length) keyW = Math.max(keyW, tw(a.keys.join(','), '600 9px Inter,system-ui') + 6);
+      nameW = Math.max(nameW, tw(a.name, rowFont));
+      typeW = Math.max(typeW, tw(a.type, monoFont));
+    }
+    const bodyW = (keyW ? keyW + 6 : 0) + nameW + (typeW ? typeW + 16 : 0);
+    const width = Math.max(110, tw(title, headFont) + CELL_PAD * 2, bodyW + CELL_PAD * 2);
+    const height = HEAD_H + (ent.attributes.length ? ent.attributes.length * ROW_H + 6 : 0);
+    dims[ent.name] = { width, height, keyW, typeW };
+  }
+
+  const g = new dagre.graphlib.Graph({ multigraph: true });
+  const rankdir = er.direction === 'BT' || er.direction === 'RL' || er.direction === 'LR' ? er.direction : 'TB';
+  g.setGraph({ rankdir, nodesep: 40, ranksep: 70, marginx: PAD_L, marginy: PAD_T });
+  g.setDefaultEdgeLabel(() => ({}));
+  for (const ent of entities) g.setNode(ent.name, { width: dims[ent.name].width, height: dims[ent.name].height });
+  er.relationships.forEach((r, i) => {
+    g.setEdge(r.from, r.to, { label: r.label, width: tw(r.label, '9px Inter') + 8, height: 12 }, 'r' + i);
+  });
+  try { dagre.layout(g); } catch { return null; }
+
+  const gi = g.graph();
+  const W = r1(gi.width + PAD_R), H = r1(gi.height + PAD_B);
+  let svg = '';
+
+  // Relationships
+  er.relationships.forEach((r, i) => {
+    const ed = g.edge(r.from, r.to, 'r' + i);
+    if (!ed?.points?.length) return;
+    const pts = ed.points;
+    const d = smoothPath(pts);
+    const dash = r.identifying ? '' : 'stroke-dasharray="5,4"';
+    svg += `<path class="edge-path" d="${d}" stroke="${th.edgeColor0}" stroke-width="2" fill="none" ${dash} data-from="${esc(r.from)}" data-to="${esc(r.to)}"/>`;
+    // Cardinality text just outside each entity, nudged sideways off the line
+    const endLabel = (p, q, marker) => {
+      const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
+      const x = r1(p.x + (dx / len) * 20 + (-dy / len) * 11), y = r1(p.y + (dy / len) * 20 + (dx / len) * 11);
+      return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui" font-size="9" font-weight="600" fill="${th.edgeLabelText}">${esc(OmmViewer.cardinalityText(marker))}</text>`;
+    };
+    svg += endLabel(pts[0], pts[1], r.fromCard);
+    svg += endLabel(pts[pts.length - 1], pts[pts.length - 2], r.toCard);
+    if (r.label) {
+      const mid = pts[Math.floor(pts.length / 2)];
+      const lw = tw(r.label, '9px Inter') + 8, mx = r1(mid.x), my = r1(mid.y);
+      svg += `<g class="edge-label"><rect x="${mx - lw / 2}" y="${my - 6}" width="${lw}" height="12" rx="2" fill="${th.edgeLabelBg}"/>
+        <text x="${mx}" y="${my + 3}" text-anchor="middle" font-family="Inter,system-ui" font-size="9" fill="${th.edgeLabelText}">${esc(r.label)}</text></g>`;
+    }
+  });
+
+  // Entities
+  for (const ent of entities) {
+    const pos = g.node(ent.name); if (!pos) continue;
+    const { width: w, height: h, keyW, typeW } = dims[ent.name];
+    const x = r1(pos.x - w / 2), y = r1(pos.y - h / 2);
+    const id = esc(scopedPath + '/' + ent.name);
+    let body = `<rect class="nshape" x="${x}" y="${y}" width="${r1(w)}" height="${r1(h)}" rx="4" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>`;
+    body += `<path d="M${x},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${st.border}" stroke-width="1"/>`;
+    body += `<text class="node-lbl" x="${r1(pos.x)}" y="${r1(y + HEAD_H / 2)}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="${st.text}">${esc(ent.alias || ent.name)}</text>`;
+    ent.attributes.forEach((a, i) => {
+      const ry = r1(y + HEAD_H + 3 + ROW_H * i + ROW_H / 2);
+      let cx = x + CELL_PAD;
+      if (keyW) {
+        if (a.keys.length) {
+          const color = ER_KEY_COLORS[a.keys[0]] || th.edgeLabelText;
+          body += `<text x="${r1(cx)}" y="${ry}" dominant-baseline="central" font-family="Inter,system-ui" font-size="9" font-weight="600" fill="${color}">${esc(a.keys.join(','))}</text>`;
+        }
+        cx += keyW + 6;
+      }
+      const title = a.comment ? `<title>${esc(a.comment)}</title>` : '';
+      body += `<text x="${r1(cx)}" y="${ry}" dominant-baseline="central" font-family="Inter,system-ui" font-size="11" fill="${st.text}">${title}${esc(a.name)}</text>`;
+      if (typeW) {
+        body += `<text x="${r1(x + w - CELL_PAD)}" y="${ry}" text-anchor="end" dominant-baseline="central" font-family="'SF Mono','Fira Code',monospace" font-size="10" fill="${st.text}" opacity="0.5">${esc(a.type)}</text>`;
+      }
+    });
+    svg += `<g class="reg-node er-entity" data-cls="${id}" onclick="event.stopPropagation();window.__openSb('${id}')">${body}</g>`;
+  }
+
+  return { svgContent: svg, W, H, labelOverlay: '' };
 }
 
 // ── sidebar diagram renderer (flat, for sidebar only) ─────

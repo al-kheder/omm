@@ -76,6 +76,8 @@ Görüntüleyici, bu iç içe yapıyı dosya sistemine bakarak otomatik algılar
 
 Her element en fazla 7 alan taşıyabilir: `description`, `diagram`, `context`, `constraint`, `concern`, `todo`, `note`.
 
+Diyagramlar akış şemalarıdır (`graph` / `flowchart`) veya veritabanı şemaları gibi veri modelleri için ER diyagramlarıdır (`erDiagram`). Her ikisi de `omm validate` ile doğrulanır ve görüntüleyicide çizilir.
+
 ## CLI
 
 ```bash
@@ -129,8 +131,9 @@ Bkz. [docs/ROADMAP.md](./docs/ROADMAP.md).
 ```bash
 git clone https://github.com/al-kheder/omm.git
 cd omm
-npm install && npm run build
-npm test
+corepack enable   # provides the pinned pnpm version
+pnpm install && pnpm build
+pnpm test
 ```
 
 Issue ve PR'lar memnuniyetle karşılanır. Lütfen [Conventional Commits](https://www.conventionalcommits.org/) kullanın.

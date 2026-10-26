@@ -21,8 +21,6 @@ function writeJson(filePath: string, value: unknown): void {
 function createVersionFixture(version: string, overrides?: {
   pluginVersion?: string;
   marketplaceVersion?: string;
-  lockfileVersion?: string;
-  rootPackageVersion?: string;
 }): string {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'omm-version-sync-'));
 
@@ -34,22 +32,12 @@ function createVersionFixture(version: string, overrides?: {
   writeJson(path.join(tmpDir, '.claude-plugin', 'marketplace.json'), {
     plugins: [{ name: 'oh-my-mermaid', version: overrides?.marketplaceVersion ?? version }],
   });
-  writeJson(path.join(tmpDir, 'package-lock.json'), {
-    name: 'oh-my-mermaid',
-    version: overrides?.lockfileVersion ?? version,
-    packages: {
-      '': {
-        name: 'oh-my-mermaid',
-        version: overrides?.rootPackageVersion ?? overrides?.lockfileVersion ?? version,
-      },
-    },
-  });
 
   return tmpDir;
 }
 
 describe('check-version-sync helpers', () => {
-  it('accepts matching package, plugin, marketplace, and lockfile versions', () => {
+  it('accepts matching package, plugin and marketplace versions', () => {
     const fixture = createVersionFixture('1.2.3');
     const versions = collectVersionInfo(fixture);
 
@@ -57,18 +45,14 @@ describe('check-version-sync helpers', () => {
       packageVersion: '1.2.3',
       pluginVersion: '1.2.3',
       marketplaceVersion: '1.2.3',
-      lockfileVersion: '1.2.3',
-      lockfileRootVersion: '1.2.3',
     });
     expect(getVersionMismatchMessages(versions)).toEqual([]);
   });
 
-  it('reports all mismatched versions, including a stale package-lock root package version', () => {
+  it('reports all mismatched versions', () => {
     const fixture = createVersionFixture('1.2.3', {
       pluginVersion: '1.2.4',
       marketplaceVersion: '1.2.5',
-      lockfileVersion: '1.2.2',
-      rootPackageVersion: '1.2.1',
     });
 
     const versions = collectVersionInfo(fixture);
@@ -76,8 +60,12 @@ describe('check-version-sync helpers', () => {
     expect(getVersionMismatchMessages(versions)).toEqual([
       'plugin.json version (1.2.4) != package.json (1.2.3)',
       'marketplace.json version (1.2.5) != package.json (1.2.3)',
-      'package-lock.json version (1.2.2) != package.json (1.2.3)',
-      'package-lock.json packages[\"\"] version (1.2.1) != package.json (1.2.3)',
     ]);
+  });
+
+  it('does not need a package-lock.json (the project uses pnpm)', () => {
+    const fixture = createVersionFixture('1.2.3');
+    expect(fs.existsSync(path.join(fixture, 'package-lock.json'))).toBe(false);
+    expect(() => collectVersionInfo(fixture)).not.toThrow();
   });
 });

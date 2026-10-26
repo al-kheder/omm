@@ -2,8 +2,6 @@ export interface VersionInfo {
   packageVersion: string;
   pluginVersion: string;
   marketplaceVersion: string | null;
-  lockfileVersion: string;
-  lockfileRootVersion: string | null;
 }
 
 export function collectVersionInfo(rootDir?: string): VersionInfo;

@@ -1,8 +1,23 @@
 import type { DiffResult } from '../types.js';
+import { detectDiagramType, parseErDiagram } from './er.js';
 
 interface MermaidElement {
   nodes: Set<string>;
   edges: Set<string>;
+  /** ER diagrams only: "entity.attribute" entries, so diffs report attribute changes */
+  attributes?: Set<string>;
+}
+
+/** ER diagram as nodes (entities), edges ("a ||--o{ b") and attributes ("a.id") */
+function parseEr(text: string): MermaidElement {
+  const er = parseErDiagram(text);
+  const nodes = new Set(er.entities.keys());
+  const edges = new Set(er.relationships.map(r => `${r.from} ${r.fromCard}${r.identifying ? '--' : '..'}${r.toCard} ${r.to}`));
+  const attributes = new Set<string>();
+  for (const entity of er.entities.values()) {
+    for (const attr of entity.attributes) attributes.add(`${entity.name}.${attr.name}`);
+  }
+  return { nodes, edges, attributes };
 }
 
 const SKIP_LINE = /^(graph|flowchart|sequenceDiagram|classDiagram|erDiagram|stateDiagram|gantt|pie|gitGraph|classDef|class\s|click\s|style\s|linkStyle|subgraph|end$|direction\s|%%)/i;
@@ -119,6 +134,8 @@ function readArrow(s: string): { arrow: string; length: number } | null {
  * Edge identity is `src arrow dst`; labels are not part of it.
  */
 export function parseMermaid(text: string): MermaidElement {
+  if (detectDiagramType(text) === 'er') return parseEr(text);
+
   const nodes = new Set<string>();
   const edges = new Set<string>();
 
@@ -162,13 +179,24 @@ export function diffMermaid(before: string, after: string): DiffResult {
   const added_edges = [...curr.edges].filter(e => !prev.edges.has(e));
   const removed_edges = [...prev.edges].filter(e => !curr.edges.has(e));
 
-  return {
+  const result: DiffResult = {
     added_nodes,
     removed_nodes,
     added_edges,
     removed_edges,
     has_changes: added_nodes.length > 0 || removed_nodes.length > 0 || added_edges.length > 0 || removed_edges.length > 0,
   };
+
+  // ER diagrams: also report attribute changes
+  if (prev.attributes || curr.attributes) {
+    const prevAttrs = prev.attributes ?? new Set<string>();
+    const currAttrs = curr.attributes ?? new Set<string>();
+    result.added_attributes = [...currAttrs].filter(a => !prevAttrs.has(a));
+    result.removed_attributes = [...prevAttrs].filter(a => !currAttrs.has(a));
+    result.has_changes ||= result.added_attributes.length > 0 || result.removed_attributes.length > 0;
+  }
+
+  return result;
 }
 
 export function formatDiff(diff: DiffResult): string {
@@ -190,6 +218,14 @@ export function formatDiff(diff: DiffResult): string {
   if (diff.removed_edges.length) {
     lines.push('Removed edges:');
     diff.removed_edges.forEach(e => lines.push(`  - ${e}`));
+  }
+  if (diff.added_attributes?.length) {
+    lines.push('Added attributes:');
+    diff.added_attributes.forEach(a => lines.push(`  + ${a}`));
+  }
+  if (diff.removed_attributes?.length) {
+    lines.push('Removed attributes:');
+    diff.removed_attributes.forEach(a => lines.push(`  - ${a}`));
   }
   return lines.join('\n') + '\n';
 }

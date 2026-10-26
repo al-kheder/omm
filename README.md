@@ -74,6 +74,8 @@ The viewer auto-detects nesting from the filesystem — elements with children r
 
 Each element carries up to 7 fields: `description`, `diagram`, `context`, `constraint`, `concern`, `todo`, `note`.
 
+Diagrams are flowcharts (`graph` / `flowchart`), or ER diagrams (`erDiagram`) for data models such as database schemas. Both are validated by `omm validate` and rendered by the viewer.
+
 ## CLI
 
 ```bash
@@ -127,8 +129,9 @@ See [docs/ROADMAP.md](./docs/ROADMAP.md).
 ```bash
 git clone https://github.com/al-kheder/omm.git
 cd omm
-npm install && npm run build
-npm test
+corepack enable   # provides the pinned pnpm version
+pnpm install && pnpm build
+pnpm test
 ```
 
 Issues and PRs welcome. Use [Conventional Commits](https://www.conventionalcommits.org/).

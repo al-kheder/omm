@@ -32,15 +32,16 @@
   "engines": {
     "node": ">=18"
   },
+  "packageManager": "pnpm@10.34.6",
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "prepare": "npm run build",
+    "prepare": "tsup",
     "check-version-sync": "node scripts/check-version-sync.js",
     "sync-version": "node scripts/sync-version.js",
-    "prepublishOnly": "npm run build && npm run sync-version"
+    "prepublishOnly": "tsup && node scripts/sync-version.js"
   },
   "author": "al-kheder",
   "license": "MIT",
@@ -55,5 +56,10 @@
     "dompurify": "3.1.6",
     "marked": "12.0.2",
     "yaml": "^2.8.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

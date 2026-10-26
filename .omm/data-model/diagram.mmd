@@ -1,0 +1,34 @@
+erDiagram
+    omm-dir ||--|| config : "has one"
+    omm-dir ||--o{ element : "contains perspectives"
+    element ||--o{ element : "nests children"
+    element ||--o{ field : "stores up to 7"
+    element ||--o| meta : "tracked by"
+    omm-dir {
+        string path PK "<project>/.omm"
+    }
+    config {
+        string version "package version at init"
+        string language "content language for fields"
+        string cloud "optional project_slug and org_slug"
+    }
+    element {
+        string path PK "perspective/child/... = directory"
+        string kind "perspective or nested-class"
+    }
+    field {
+        string element_path PK, FK
+        string name PK "description, diagram, context, ..."
+        string file "description.md, diagram.mmd, ..."
+    }
+    meta {
+        string element_path PK, FK
+        datetime created
+        datetime updated
+        int update_count
+        string last_field
+        string git_commit "baseline for incremental analysis"
+        string git_branch
+        text prev_diagram "used by omm diff"
+        string[] children "informational; viewer reads the filesystem"
+    }
