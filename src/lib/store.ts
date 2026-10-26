@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import YAML from 'yaml';
 import { VALID_FIELDS, FIELD_FILES, type Field, type ClassMeta, type ClassData, type OmmConfig } from '../types.js';
-import { updateMeta } from './meta.js';
+import { getGitInfo } from './meta.js';
 
 const OMM_DIR = '.omm';
 const CONFIG_FILE = 'config.yaml';
@@ -200,9 +200,15 @@ export function writeNodeField(
     field,
     nodePath.length > 0 ? nodePath.slice(0, -1) : undefined,
   );
+  // Older meta files (written before v0.2.1) lack kind/title on perspectives
+  meta.kind ??= nodePath.length === 0 ? 'perspective' : 'nested-class';
+  meta.title ??= nodePath[nodePath.length - 1] ?? perspective;
   meta.updated = new Date().toISOString();
   meta.update_count = (meta.update_count ?? 0) + 1;
   meta.last_field = field;
+  const git = getGitInfo(cwd ?? process.cwd());
+  if (git.commit) meta.git_commit = git.commit;
+  if (git.branch) meta.git_branch = git.branch;
   writeNodeMeta(perspective, nodePath, meta, cwd);
 
   if (nodePath.length > 0) {
@@ -282,6 +288,18 @@ export function deleteClass(className: string, cwd?: string): boolean {
   const dir = classDir(className, cwd);
   if (!fs.existsSync(dir)) return false;
   fs.rmSync(dir, { recursive: true });
+
+  // Keep the parent's children list in sync
+  const [perspective, ...nodePath] = parseElementPath(className);
+  if (nodePath.length > 0) {
+    const parentPath = nodePath.slice(0, -1);
+    const parentMeta = readNodeMeta(perspective, parentPath, cwd);
+    const childName = nodePath[nodePath.length - 1];
+    if (parentMeta?.children?.includes(childName)) {
+      parentMeta.children = parentMeta.children.filter(c => c !== childName);
+      writeNodeMeta(perspective, parentPath, parentMeta, cwd);
+    }
+  }
   return true;
 }
 
@@ -293,29 +311,10 @@ export function readField(className: string, field: Field, cwd?: string): string
   return fs.readFileSync(filePath, 'utf-8');
 }
 
+/** Write a field by element path ("persp" or "persp/child"); same behavior as writeNodeField */
 export function writeField(className: string, field: Field, content: string, cwd?: string): number {
-  ensureOmmForWrite(cwd);
-  const dir = ensureClassDir(className, cwd);
-  const filePath = path.join(dir, FIELD_FILES[field]);
-
-  // If writing diagram, save previous version to meta
-  if (field === 'diagram') {
-    const prev = readField(className, 'diagram', cwd);
-    if (prev !== null) {
-      const meta = readMeta(className, cwd);
-      if (meta) {
-        meta.prev_diagram = prev;
-        writeMeta(className, meta, cwd);
-      }
-    }
-  }
-
-  fs.writeFileSync(filePath, content, 'utf-8');
-  updateMeta(className, field, cwd);
-
-  const bytes = Buffer.byteLength(content, 'utf-8');
-  process.stderr.write(`wrote ${className}/${FIELD_FILES[field]} (${bytes} bytes)\n`);
-  return bytes;
+  const [perspective, ...nodePath] = parseElementPath(className);
+  return writeNodeField(perspective, nodePath, field, content, cwd);
 }
 
 // --- Meta ---
