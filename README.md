@@ -20,23 +20,38 @@
 
 ## Quick Start
 
-Paste this in your terminal:
+You need Node.js 18 or newer and Git.
+
+**1. Install the CLI and register the skills.** Paste this in your terminal:
 
 ```bash
 npm install -g github:al-kheder/omm && omm setup
 ```
 
-Then open your AI coding tool and use the `/omm-scan` skill:
+On npm 12 or newer, add `--allow-git=all` to the install command, because npm 12 blocks installs from GitHub by default.
+
+`omm setup` registers the skills with every AI tool it finds (see [Supported AI Tools](#supported-ai-tools)). It finds Claude Code only when the `claude` command is installed. If you use only the VS Code or desktop app, add the plugin from inside Claude Code instead:
+
+```
+/plugin marketplace add al-kheder/omm
+/plugin install oh-my-mermaid@al-kheder-omm
+```
+
+**2. Scan your codebase.** Open your AI coding tool in your project and run:
 
 ```
 /omm-scan
 ```
 
-That's it. View the result:
+In Claude Code the skill appears as `/oh-my-mermaid:omm-scan`. The scan writes the docs to `.omm/` in your project.
+
+**3. View the result.** In your project folder, run:
 
 ```bash
 omm view
 ```
+
+Then open http://localhost:3000. Use `--port <n>` to pick another port. The viewer only accepts connections from your own machine and updates live as `.omm/` changes.
 
 ## Example
 

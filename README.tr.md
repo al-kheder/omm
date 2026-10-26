@@ -22,23 +22,38 @@
 
 ## Hızlı Başlangıç
 
-Aşağıdaki komutu terminale yapıştırın:
+Node.js 18 veya üzeri ve Git gereklidir.
+
+**1. CLI'ı kurun ve yetenekleri kaydedin.** Aşağıdaki komutu terminale yapıştırın:
 
 ```bash
 npm install -g github:al-kheder/omm && omm setup
 ```
 
-Ardından kullandığınız AI kodlama aracını açın ve `/omm-scan` yeteneğini çalıştırın:
+npm 12 veya üzerinde kurulum komutuna `--allow-git=all` ekleyin; npm 12 varsayılan olarak GitHub'dan kurulumu engeller.
+
+`omm setup`, bulduğu her AI aracına yetenekleri kaydeder (bkz. [Desteklenen AI Araçları](#desteklenen-ai-araçları)). Claude Code'u yalnızca `claude` komutu kuruluysa bulur. Yalnızca VS Code eklentisini veya masaüstü uygulamasını kullanıyorsanız, eklentiyi Claude Code içinden ekleyin:
+
+```
+/plugin marketplace add al-kheder/omm
+/plugin install oh-my-mermaid@al-kheder-omm
+```
+
+**2. Kod tabanınızı tarayın.** AI kodlama aracınızı projenizde açın ve çalıştırın:
 
 ```
 /omm-scan
 ```
 
-Hepsi bu kadar. Sonucu görüntülemek için:
+Claude Code'da yetenek `/oh-my-mermaid:omm-scan` olarak görünür. Tarama, belgeleri projenizdeki `.omm/` klasörüne yazar.
+
+**3. Sonucu görüntüleyin.** Proje klasörünüzde çalıştırın:
 
 ```bash
 omm view
 ```
+
+Ardından http://localhost:3000 adresini açın. Başka bir port için `--port <n>` kullanın. Görüntüleyici yalnızca kendi bilgisayarınızdan gelen bağlantıları kabul eder ve `.omm/` değiştikçe canlı olarak güncellenir.
 
 ## Örnek
 

@@ -22,23 +22,38 @@
 
 ## 快速开始
 
-在终端中粘贴：
+需要 Node.js 18 或更高版本以及 Git。
+
+**1. 安装 CLI 并注册技能。** 在终端中粘贴：
 
 ```bash
 npm install -g github:al-kheder/omm && omm setup
 ```
 
-打开你的 AI 编码工具，使用 `/omm-scan` 技能：
+使用 npm 12 或更高版本时，请在安装命令中加上 `--allow-git=all`，因为 npm 12 默认阻止从 GitHub 安装。
+
+`omm setup` 会为找到的每个 AI 工具注册技能（见[支持的 AI 工具](#支持的-ai-工具)）。只有安装了 `claude` 命令时才能找到 Claude Code。如果你只使用 VS Code 扩展或桌面应用，请在 Claude Code 中添加插件：
+
+```
+/plugin marketplace add al-kheder/omm
+/plugin install oh-my-mermaid@al-kheder-omm
+```
+
+**2. 扫描代码库。** 在项目中打开 AI 编码工具并运行：
 
 ```
 /omm-scan
 ```
 
-就这样。查看结果：
+在 Claude Code 中，该技能显示为 `/oh-my-mermaid:omm-scan`。扫描结果写入项目的 `.omm/` 目录。
+
+**3. 查看结果。** 在项目文件夹中运行：
 
 ```bash
 omm view
 ```
+
+然后打开 http://localhost:3000。使用 `--port <n>` 指定其他端口。查看器只接受来自本机的连接，并在 `.omm/` 变化时实时更新。
 
 ## 示例
 
