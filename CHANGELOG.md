@@ -4,6 +4,14 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ## [Unreleased] — v0.3.0 Diagram types
 
+### Changed
+
+- **Development uses pnpm** (pinned to `pnpm@10.34.6` via `packageManager`). Run `corepack enable`, then `pnpm install`.
+  - `pnpm-lock.yaml` replaces `package-lock.json`. It was converted with `pnpm import`, so every dependency version is unchanged.
+  - CI and the release workflow use pnpm.
+  - `check-version-sync` no longer reads a lockfile.
+  - Installing the CLI is unchanged: `npm install -g github:al-kheder/omm` still works, because `prepare` now calls `tsup` directly instead of `npm run build`.
+
 ### Added
 
 - **ER diagrams (`erDiagram`)** for data models such as database schemas, ORM models and file formats.

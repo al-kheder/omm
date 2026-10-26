@@ -61,7 +61,7 @@ describe('viewer server', () => {
     expect(res.body.length).toBeGreaterThan(1000);
   });
 
-  // dist/ exists after `npm ci` (the prepare script builds) or `npm run build`
+  // dist/ exists after `pnpm install` (the prepare script builds) or `pnpm build`
   it.skipIf(!fs.existsSync(path.join(__dirname, '..', '..', 'dist', 'omm-viewer.global.js')))(
     'serves the shared parser bundle as /vendor/omm.js',
     async () => {

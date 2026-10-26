@@ -131,8 +131,9 @@ omm login && omm link && omm push
 ```bash
 git clone https://github.com/al-kheder/omm.git
 cd omm
-npm install && npm run build
-npm test
+corepack enable   # provides the pinned pnpm version
+pnpm install && pnpm build
+pnpm test
 ```
 
 IssueとPRを歓迎します。[Conventional Commits](https://www.conventionalcommits.org/)を使用してください。
