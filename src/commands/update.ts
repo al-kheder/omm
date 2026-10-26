@@ -1,15 +1,16 @@
 import { execFileSync, execSync } from 'node:child_process';
+import { INSTALL_SPEC } from '../lib/package-info.js';
 
 export async function commandUpdate(): Promise<void> {
-  // Step 1: Update npm package
+  // Step 1: Reinstall the package (git installs can't be updated with `npm update`)
   process.stderr.write('Updating oh-my-mermaid CLI...\n');
   try {
-    const out = execSync('npm update -g oh-my-mermaid 2>&1', { encoding: 'utf-8' }).trim();
+    const out = execSync(`npm install -g ${INSTALL_SPEC} 2>&1`, { encoding: 'utf-8' }).trim();
     if (out) process.stderr.write(`  ${out}\n`);
     process.stderr.write('  CLI updated.\n');
   } catch (err: any) {
-    process.stderr.write(`  npm update failed: ${err.message}\n`);
-    process.stderr.write('  Try manually: npm update -g oh-my-mermaid\n');
+    process.stderr.write(`  npm install failed: ${err.message}\n`);
+    process.stderr.write(`  Try manually: npm install -g ${INSTALL_SPEC}\n`);
     return;
   }
 

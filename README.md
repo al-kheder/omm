@@ -7,7 +7,6 @@
 <h1 align="center">Oh-my-mermaid</h1>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/oh-my-mermaid"><img src="https://img.shields.io/npm/v/oh-my-mermaid" alt="npm version"/></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
 </p>
 
@@ -24,7 +23,7 @@
 Paste this in your terminal:
 
 ```bash
-npm install -g oh-my-mermaid && omm setup
+npm install -g github:al-kheder/oh-my-mermaid && omm setup
 ```
 
 Then open your AI coding tool and use the `/omm-scan` skill:
@@ -95,15 +94,16 @@ Skills are commands you run **inside your AI coding tool** (not the terminal). T
 | `/omm-scan` | Analyze codebase → generate architecture docs |
 | `/omm-push` | Login + link + push to cloud in one step |
 
-## Cloud
+## Cloud (optional)
 
-You can store your architecture in the cloud via [ohmymermaid.com](https://ohmymermaid.com).
+Everything works locally — no account or server is needed. The `login`, `link`, `push` and `pull` commands only work when you point them at a compatible server:
 
 ```bash
+export OMM_API_URL=https://your-server.example
 omm login && omm link && omm push
 ```
 
-It's private by default. Share with your team, or make it public like [this example](https://ohmymermaid.com/share/c47e20a7063c231760361ed9cb9ec4b6).
+No server is configured by default.
 
 ## Supported AI Tools
 
@@ -124,7 +124,7 @@ See [docs/ROADMAP.md](./docs/ROADMAP.md).
 ## Development & Contributing
 
 ```bash
-git clone https://github.com/oh-my-mermaid/oh-my-mermaid.git
+git clone https://github.com/al-kheder/oh-my-mermaid.git
 cd oh-my-mermaid
 npm install && npm run build
 npm test

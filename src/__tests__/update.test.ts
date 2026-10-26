@@ -15,14 +15,14 @@ describe('commandUpdate', () => {
     execFileSync.mockReset();
   });
 
-  it('re-runs setup through a fresh omm subprocess after npm update succeeds', async () => {
+  it('re-runs setup through a fresh omm subprocess after npm install succeeds', async () => {
     execSync.mockReturnValue('updated');
     const stderrWrite = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const { commandUpdate } = await import('../commands/update.js');
 
     await commandUpdate();
 
-    expect(execSync).toHaveBeenCalledWith('npm update -g oh-my-mermaid 2>&1', {
+    expect(execSync).toHaveBeenCalledWith('npm install -g github:al-kheder/oh-my-mermaid 2>&1', {
       encoding: 'utf-8',
     });
     expect(execFileSync).toHaveBeenCalledWith('omm', ['setup'], { stdio: 'inherit' });

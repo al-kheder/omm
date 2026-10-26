@@ -1,7 +1,7 @@
 {
-  "name": "oh-my-mermaid",
+  "name": "al-kheder-omm",
   "owner": {
-    "name": "oh-my-mermaid"
+    "name": "al-kheder"
   },
   "plugins": [
     {
@@ -10,7 +10,7 @@
       "version": "0.2.0",
       "source": "./",
       "category": "development",
-      "homepage": "https://github.com/oh-my-mermaid/oh-my-mermaid"
+      "homepage": "https://github.com/al-kheder/oh-my-mermaid"
     }
   ]
 }

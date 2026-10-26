@@ -16,10 +16,10 @@ Analyze the codebase and generate `.omm/` architecture documentation using **per
 ## Prerequisites
 
 ```bash
-command -v omm || npm install -g oh-my-mermaid
+command -v omm || npm install -g github:al-kheder/oh-my-mermaid
 ```
 
-If the install fails, tell the user: "Please run `npm install -g oh-my-mermaid` in your terminal, then try again."
+If the install fails, tell the user: "Please run `npm install -g github:al-kheder/oh-my-mermaid` in your terminal, then try again."
 
 ---
 

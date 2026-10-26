@@ -1,3 +1,4 @@
+import { copyFileSync } from 'node:fs';
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
@@ -10,5 +11,8 @@ export default defineConfig({
   clean: true,
   splitting: false,
   sourcemap: true,
-  onSuccess: 'cp src/server/viewer.html dist/ 2>/dev/null || true',
+  // Copy with Node rather than `cp` so the build also works on Windows
+  onSuccess: async () => {
+    copyFileSync('src/server/viewer.html', 'dist/viewer.html');
+  },
 });

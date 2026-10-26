@@ -47,8 +47,8 @@ Usage:
   omm validate [path]               Validate diagram(s) for syntax and conventions
   omm view [--port <port>]         Start web viewer (default: 3000)
 
-Cloud:
-  omm login                         Log in to omm.dev
+Cloud (optional, requires OMM_API_URL):
+  omm login                         Log in to the cloud server
   omm logout                        Log out
   omm link [org/slug]                Link project to a cloud slug
   omm push                          Push .omm/ to cloud
