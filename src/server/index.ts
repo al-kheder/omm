@@ -37,7 +37,15 @@ export function startServer(port: number): void {
 
     // API endpoints
     if (url.pathname.startsWith('/api/')) {
-      if (handleApi(req, res)) return;
+      try {
+        if (handleApi(req, res)) return;
+      } catch (err) {
+        // Invalid element paths are client errors; never let them crash the server
+        const message = err instanceof Error ? err.message : String(err);
+        res.writeHead(message.startsWith('invalid element path') ? 400 : 500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: message }));
+        return;
+      }
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'not found' }));
       return;

@@ -55,10 +55,38 @@ export function initOmm(cwd?: string): void {
   }
 }
 
+// --- Path safety ---
+
+const UNSAFE_SEGMENT_CHARS = /[\\:\0]/;
+
+/**
+ * Split an element path ("persp/child") into segments, rejecting anything that
+ * could resolve outside .omm/: empty segments (also catches absolute paths),
+ * dot-prefixed segments (".", "..", hidden dirs), backslashes and drive letters.
+ */
+export function parseElementPath(elementPath: string): string[] {
+  const segments = elementPath.split('/');
+  const unsafe = !elementPath || segments.some(s => !s || s.startsWith('.') || UNSAFE_SEGMENT_CHARS.test(s));
+  if (unsafe) {
+    throw new Error(`invalid element path '${elementPath}'`);
+  }
+  return segments;
+}
+
+/** Resolve an element path to its directory, guaranteed to be inside .omm/ */
+function resolveElementDir(elementPath: string, cwd?: string): string {
+  const root = path.resolve(getOmmDir(cwd));
+  const dir = path.resolve(root, ...parseElementPath(elementPath));
+  if (!dir.startsWith(root + path.sep)) {
+    throw new Error(`invalid element path '${elementPath}'`);
+  }
+  return dir;
+}
+
 // --- Class operations ---
 
 function classDir(className: string, cwd?: string): string {
-  return path.join(getOmmDir(cwd), className);
+  return resolveElementDir(className, cwd);
 }
 
 function ensureClassDir(className: string, cwd?: string): string {
@@ -86,7 +114,7 @@ export function listClasses(cwd?: string): string[] {
 
 /** Resolve filesystem path for a nested element: .omm/<perspective>/<child>/<grandchild> */
 export function nodeDir(perspective: string, nodePath: string[], cwd?: string): string {
-  return path.join(classDir(perspective, cwd), ...nodePath);
+  return resolveElementDir([perspective, ...nodePath].join('/'), cwd);
 }
 
 function ensureNodeDir(perspective: string, nodePath: string[], cwd?: string): string {
