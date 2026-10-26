@@ -4,7 +4,7 @@ import { diffMermaid } from '../lib/diff.js';
 import { getIncomingRefs, getOutgoingRefs } from '../lib/refs.js';
 
 function json(res: ServerResponse, data: unknown, status = 200): void {
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+  res.writeHead(status, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(data));
 }
 

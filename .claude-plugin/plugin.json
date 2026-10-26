@@ -3,10 +3,10 @@
   "description": "Turn complex codebases into clear, navigable architecture diagrams",
   "version": "0.2.0",
   "author": {
-    "name": "oh-my-mermaid"
+    "name": "al-kheder"
   },
-  "homepage": "https://github.com/oh-my-mermaid/oh-my-mermaid",
-  "repository": "https://github.com/oh-my-mermaid/oh-my-mermaid",
+  "homepage": "https://github.com/al-kheder/omm",
+  "repository": "https://github.com/al-kheder/omm",
   "license": "MIT",
   "keywords": [
     "architecture",

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Platform } from './types.js';
 import { getSkillsSource, getAgentsSource, getPackageVersion, hasCommand } from './utils.js';
+import { REPO_URL } from '../package-info.js';
 
 const PLUGIN_DIR = '.cursor-plugin';
 const PLUGIN_FILE = 'plugin.json';
@@ -80,7 +81,7 @@ export const cursor: Platform = {
       description: 'Turn complex codebases into clear, navigable architecture diagrams',
       version: getPackageVersion() || '0.0.0',
       author: { name: 'oh-my-mermaid' },
-      homepage: 'https://github.com/oh-my-mermaid/oh-my-mermaid',
+      homepage: REPO_URL,
       license: 'MIT',
       skills: `./${PLUGIN_DIR}/skills/`,
     };

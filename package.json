@@ -1,5 +1,5 @@
 {
-  "name": "oh-my-mermaid",
+  "name": "@al-kheder/oh-my-mermaid",
   "version": "0.2.0",
   "description": "Architecture mirror for vibe coding — CLI + Claude Code skills",
   "type": "module",
@@ -14,13 +14,13 @@
     ".claude-plugin/",
     "LICENSE"
   ],
-  "homepage": "https://github.com/oh-my-mermaid/oh-my-mermaid",
+  "homepage": "https://github.com/al-kheder/omm",
   "bugs": {
-    "url": "https://github.com/oh-my-mermaid/oh-my-mermaid/issues"
+    "url": "https://github.com/al-kheder/omm/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/oh-my-mermaid/oh-my-mermaid.git"
+    "url": "git+https://github.com/al-kheder/omm.git"
   },
   "keywords": [
     "mermaid",
@@ -36,11 +36,13 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "prepare": "npm run build",
     "check-version-sync": "node scripts/check-version-sync.js",
     "sync-version": "node scripts/sync-version.js",
     "prepublishOnly": "npm run build && npm run sync-version"
   },
-  "author": "",
+  "author": "al-kheder",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^25.5.0",
@@ -49,6 +51,9 @@
     "vitest": "^4.1.0"
   },
   "dependencies": {
+    "dagre": "0.8.5",
+    "dompurify": "3.1.6",
+    "marked": "12.0.2",
     "yaml": "^2.8.3"
   }
 }

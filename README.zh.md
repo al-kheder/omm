@@ -9,7 +9,6 @@
 <h1 align="center">Oh-my-mermaid</h1>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/oh-my-mermaid"><img src="https://img.shields.io/npm/v/oh-my-mermaid" alt="npm version"/></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
 </p>
 
@@ -26,7 +25,7 @@
 在终端中粘贴：
 
 ```bash
-npm install -g oh-my-mermaid && omm setup
+npm install -g github:al-kheder/omm && omm setup
 ```
 
 打开你的 AI 编码工具，使用 `/omm-scan` 技能：
@@ -95,17 +94,19 @@ omm update                         # 更新到最新版本
 | 技能 | 功能 |
 | --- | --- |
 | `/omm-scan` | 分析代码库 → 生成架构文档 |
+| `/omm-view` | 在浏览器中打开架构查看器 |
 | `/omm-push` | 一步完成登录 + 链接 + 推送到云端 |
 
-## 云端
+## 云端（可选）
 
-通过 [ohmymermaid.com](https://ohmymermaid.com) 将架构存储在云端。
+所有功能均可在本地运行，无需账号或服务器。`login`、`link`、`push` 和 `pull` 命令仅在指定兼容服务器时可用：
 
 ```bash
+export OMM_API_URL=https://your-server.example
 omm login && omm link && omm push
 ```
 
-默认为私有。可以与团队共享，或像[这个示例](https://ohmymermaid.com/share/c47e20a7063c231760361ed9cb9ec4b6)一样公开。
+默认未配置任何服务器。
 
 ## 支持的 AI 工具
 
@@ -126,8 +127,8 @@ omm login && omm link && omm push
 ## 开发 & 贡献
 
 ```bash
-git clone https://github.com/oh-my-mermaid/oh-my-mermaid.git
-cd oh-my-mermaid
+git clone https://github.com/al-kheder/omm.git
+cd omm
 npm install && npm run build
 npm test
 ```

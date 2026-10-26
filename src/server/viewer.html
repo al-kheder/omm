@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>oh-my-mermaid</title>
-<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="/vendor/dagre.js"></script>
+<script src="/vendor/marked.js"></script>
+<script src="/vendor/dompurify.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1084,12 +1085,12 @@ function openSidebar(cls) {
   const data=classesData[cls]||{}, refs=refsData[cls]||{};
   sbTitle.textContent=fmtLabel(cls);
   sbDiagram.innerHTML = '';
-  const md=t=>t?marked.parse(t):'';
+  const md=t=>t?DOMPurify.sanitize(marked.parse(t)):'';
   const sec=(title,body,ex='')=>body?`<div class="sb-sec ${ex}"><div class="sb-sec-title">${title}</div><div class="sb-sec-body">${body}</div></div>`:'';
   let html='';
   if (data.meta) {
     const t=data.meta.updated?new Date(data.meta.updated).toLocaleString():'';
-    html+=`<div class="sb-sec"><div class="sb-sec-title">Meta</div><div class="sb-meta-text">${t?t+'<br>':''}${data.meta.update_count||0} updates${data.meta.git_branch?` · ${data.meta.git_branch}`:''}${data.meta.git_commit?` · ${data.meta.git_commit}`:''}</div></div>`;
+    html+=`<div class="sb-sec"><div class="sb-sec-title">Meta</div><div class="sb-meta-text">${t?t+'<br>':''}${data.meta.update_count||0} updates${data.meta.git_branch?` · ${esc(data.meta.git_branch)}`:''}${data.meta.git_commit?` · ${esc(data.meta.git_commit)}`:''}</div></div>`;
   }
   html+=sec('Description',md(data.description));
   html+=sec('Constraints',md(data.constraint));

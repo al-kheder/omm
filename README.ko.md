@@ -9,7 +9,6 @@
 <h1 align="center">Oh-my-mermaid</h1>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/oh-my-mermaid"><img src="https://img.shields.io/npm/v/oh-my-mermaid" alt="npm version"/></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
 </p>
 
@@ -26,7 +25,7 @@
 터미널에 붙여넣기:
 
 ```bash
-npm install -g oh-my-mermaid && omm setup
+npm install -g github:al-kheder/omm && omm setup
 ```
 
 AI 코딩 도구를 열고 `/omm-scan` 스킬을 실행:
@@ -95,17 +94,19 @@ omm update                         # 최신 버전으로 업데이트
 | 스킬 | 기능 |
 | --- | --- |
 | `/omm-scan` | 코드베이스 분석 → 아키텍처 문서 생성 |
+| `/omm-view` | 브라우저에서 아키텍처 뷰어 열기 |
 | `/omm-push` | 로그인 + 연결 + 클라우드 푸시를 한 번에 |
 
-## 클라우드
+## 클라우드 (선택 사항)
 
-[ohmymermaid.com](https://ohmymermaid.com)을 통해 아키텍처를 클라우드에 저장할 수 있습니다.
+모든 기능은 로컬에서 동작하며, 계정이나 서버가 필요하지 않습니다. `login`, `link`, `push`, `pull` 명령은 호환되는 서버를 지정한 경우에만 동작합니다:
 
 ```bash
+export OMM_API_URL=https://your-server.example
 omm login && omm link && omm push
 ```
 
-기본적으로 비공개입니다. 팀과 공유하거나, [이 예시](https://ohmymermaid.com/share/c47e20a7063c231760361ed9cb9ec4b6)처럼 공개할 수 있습니다.
+기본으로 설정된 서버는 없습니다.
 
 ## 지원 AI 도구
 
@@ -126,8 +127,8 @@ omm login && omm link && omm push
 ## 개발 & 기여
 
 ```bash
-git clone https://github.com/oh-my-mermaid/oh-my-mermaid.git
-cd oh-my-mermaid
+git clone https://github.com/al-kheder/omm.git
+cd omm
 npm install && npm run build
 npm test
 ```

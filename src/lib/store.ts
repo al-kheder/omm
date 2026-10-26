@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import YAML from 'yaml';
 import { VALID_FIELDS, FIELD_FILES, type Field, type ClassMeta, type ClassData, type OmmConfig } from '../types.js';
-import { updateMeta } from './meta.js';
+import { getGitInfo } from './meta.js';
+import { getPackageVersion } from './platforms/utils.js';
 
 const OMM_DIR = '.omm';
 const CONFIG_FILE = 'config.yaml';
@@ -50,15 +51,54 @@ export function initOmm(cwd?: string): void {
   }
   const configPath = path.join(dir, CONFIG_FILE);
   if (!fs.existsSync(configPath)) {
-    const config: OmmConfig = { version: '0.1.0' };
+    const config: OmmConfig = { version: getPackageVersion() ?? '0.0.0' };
     fs.writeFileSync(configPath, YAML.stringify(config), 'utf-8');
   }
+}
+
+// --- Path safety ---
+
+const UNSAFE_SEGMENT_CHARS = /[\\:\0]/;
+
+/**
+ * Split an element path ("persp/child") into segments, rejecting anything that
+ * could resolve outside .omm/: empty segments (also catches absolute paths),
+ * dot-prefixed segments (".", "..", hidden dirs), backslashes and drive letters.
+ */
+export function parseElementPath(elementPath: string): string[] {
+  const segments = elementPath.split('/');
+  if (!elementPath || !segments.every(isValidSegment)) {
+    throw new Error(`invalid element path '${elementPath}'`);
+  }
+  return segments;
+}
+
+function isValidSegment(segment: string): boolean {
+  return !!segment && !segment.startsWith('.') && !UNSAFE_SEGMENT_CHARS.test(segment);
+}
+
+function listElementDirs(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter(d => d.isDirectory() && isValidSegment(d.name))
+    .map(d => d.name)
+    .sort();
+}
+
+/** Resolve an element path to its directory, guaranteed to be inside .omm/ */
+function resolveElementDir(elementPath: string, cwd?: string): string {
+  const root = path.resolve(getOmmDir(cwd));
+  const dir = path.resolve(root, ...parseElementPath(elementPath));
+  if (!dir.startsWith(root + path.sep)) {
+    throw new Error(`invalid element path '${elementPath}'`);
+  }
+  return dir;
 }
 
 // --- Class operations ---
 
 function classDir(className: string, cwd?: string): string {
-  return path.join(getOmmDir(cwd), className);
+  return resolveElementDir(className, cwd);
 }
 
 function ensureClassDir(className: string, cwd?: string): string {
@@ -74,19 +114,14 @@ export function classExists(className: string, cwd?: string): boolean {
 }
 
 export function listClasses(cwd?: string): string[] {
-  const dir = getOmmDir(cwd);
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir, { withFileTypes: true })
-    .filter(d => d.isDirectory() && !d.name.startsWith('.'))
-    .map(d => d.name)
-    .sort();
+  return listElementDirs(getOmmDir(cwd));
 }
 
 // --- Perspective + Nested Element operations (direct nesting, no nodes/ dir) ---
 
 /** Resolve filesystem path for a nested element: .omm/<perspective>/<child>/<grandchild> */
 export function nodeDir(perspective: string, nodePath: string[], cwd?: string): string {
-  return path.join(classDir(perspective, cwd), ...nodePath);
+  return resolveElementDir([perspective, ...nodePath].join('/'), cwd);
 }
 
 function ensureNodeDir(perspective: string, nodePath: string[], cwd?: string): string {
@@ -107,11 +142,22 @@ export function listNodes(perspective: string, nodePath: string[] = [], cwd?: st
   const dir = nodePath.length === 0
     ? classDir(perspective, cwd)
     : nodeDir(perspective, nodePath, cwd);
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir, { withFileTypes: true })
-    .filter(d => d.isDirectory() && !d.name.startsWith('.'))
-    .map(d => d.name)
-    .sort();
+  return listElementDirs(dir);
+}
+
+/** Every element path in the tree ("persp", "persp/child", ...), depth-first, perspectives sorted */
+export function listAllElements(cwd?: string): string[] {
+  const out: string[] = [];
+  const walk = (perspective: string, nodePath: string[]): void => {
+    out.push([perspective, ...nodePath].join('/'));
+    for (const child of listNodes(perspective, nodePath, cwd)) {
+      walk(perspective, [...nodePath, child]);
+    }
+  };
+  for (const perspective of listClasses(cwd)) {
+    walk(perspective, []);
+  }
+  return out;
 }
 
 /** Read a field from a nested element */
@@ -155,9 +201,15 @@ export function writeNodeField(
     field,
     nodePath.length > 0 ? nodePath.slice(0, -1) : undefined,
   );
+  // Older meta files (written before v0.2.1) lack kind/title on perspectives
+  meta.kind ??= nodePath.length === 0 ? 'perspective' : 'nested-class';
+  meta.title ??= nodePath[nodePath.length - 1] ?? perspective;
   meta.updated = new Date().toISOString();
   meta.update_count = (meta.update_count ?? 0) + 1;
   meta.last_field = field;
+  const git = getGitInfo(cwd ?? process.cwd());
+  if (git.commit) meta.git_commit = git.commit;
+  if (git.branch) meta.git_branch = git.branch;
   writeNodeMeta(perspective, nodePath, meta, cwd);
 
   if (nodePath.length > 0) {
@@ -237,6 +289,18 @@ export function deleteClass(className: string, cwd?: string): boolean {
   const dir = classDir(className, cwd);
   if (!fs.existsSync(dir)) return false;
   fs.rmSync(dir, { recursive: true });
+
+  // Keep the parent's children list in sync
+  const [perspective, ...nodePath] = parseElementPath(className);
+  if (nodePath.length > 0) {
+    const parentPath = nodePath.slice(0, -1);
+    const parentMeta = readNodeMeta(perspective, parentPath, cwd);
+    const childName = nodePath[nodePath.length - 1];
+    if (parentMeta?.children?.includes(childName)) {
+      parentMeta.children = parentMeta.children.filter(c => c !== childName);
+      writeNodeMeta(perspective, parentPath, parentMeta, cwd);
+    }
+  }
   return true;
 }
 
@@ -248,29 +312,10 @@ export function readField(className: string, field: Field, cwd?: string): string
   return fs.readFileSync(filePath, 'utf-8');
 }
 
+/** Write a field by element path ("persp" or "persp/child"); same behavior as writeNodeField */
 export function writeField(className: string, field: Field, content: string, cwd?: string): number {
-  ensureOmmForWrite(cwd);
-  const dir = ensureClassDir(className, cwd);
-  const filePath = path.join(dir, FIELD_FILES[field]);
-
-  // If writing diagram, save previous version to meta
-  if (field === 'diagram') {
-    const prev = readField(className, 'diagram', cwd);
-    if (prev !== null) {
-      const meta = readMeta(className, cwd);
-      if (meta) {
-        meta.prev_diagram = prev;
-        writeMeta(className, meta, cwd);
-      }
-    }
-  }
-
-  fs.writeFileSync(filePath, content, 'utf-8');
-  updateMeta(className, field, cwd);
-
-  const bytes = Buffer.byteLength(content, 'utf-8');
-  process.stderr.write(`wrote ${className}/${FIELD_FILES[field]} (${bytes} bytes)\n`);
-  return bytes;
+  const [perspective, ...nodePath] = parseElementPath(className);
+  return writeNodeField(perspective, nodePath, field, content, cwd);
 }
 
 // --- Meta ---

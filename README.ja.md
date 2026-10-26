@@ -9,7 +9,6 @@
 <h1 align="center">Oh-my-mermaid</h1>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/oh-my-mermaid"><img src="https://img.shields.io/npm/v/oh-my-mermaid" alt="npm version"/></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
 </p>
 
@@ -26,7 +25,7 @@
 ターミナルに貼り付けてください：
 
 ```bash
-npm install -g oh-my-mermaid && omm setup
+npm install -g github:al-kheder/omm && omm setup
 ```
 
 AIコーディングツールを開き、`/omm-scan`スキルを実行：
@@ -95,17 +94,19 @@ omm update                         # 最新バージョンに更新
 | スキル | 機能 |
 | --- | --- |
 | `/omm-scan` | コードベース分析 → アーキテクチャドキュメント生成 |
+| `/omm-view` | ブラウザでアーキテクチャビューアーを開く |
 | `/omm-push` | ログイン + リンク + クラウドプッシュを一度に |
 
-## クラウド
+## クラウド（オプション）
 
-[ohmymermaid.com](https://ohmymermaid.com)を通じてアーキテクチャをクラウドに保存できます。
+すべての機能はローカルで動作し、アカウントやサーバーは不要です。`login`、`link`、`push`、`pull` コマンドは、互換サーバーを指定した場合にのみ動作します：
 
 ```bash
+export OMM_API_URL=https://your-server.example
 omm login && omm link && omm push
 ```
 
-デフォルトではプライベートです。チームと共有したり、[この例](https://ohmymermaid.com/share/c47e20a7063c231760361ed9cb9ec4b6)のように公開できます。
+デフォルトではサーバーは設定されていません。
 
 ## 対応AIツール
 
@@ -126,8 +127,8 @@ omm login && omm link && omm push
 ## 開発 & 貢献
 
 ```bash
-git clone https://github.com/oh-my-mermaid/oh-my-mermaid.git
-cd oh-my-mermaid
+git clone https://github.com/al-kheder/omm.git
+cd omm
 npm install && npm run build
 npm test
 ```

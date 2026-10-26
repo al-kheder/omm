@@ -1,4 +1,4 @@
-import { getToken, getDefaultOrg, saveDefaultOrg, saveHandle, apiRequest } from '../lib/cloud.js';
+import { getToken, getDefaultOrg, saveDefaultOrg, saveHandle, apiRequest, getApiUrl } from '../lib/cloud.js';
 
 export async function commandOrg(subcommand?: string, arg?: string): Promise<void> {
   const token = getToken();
@@ -90,7 +90,7 @@ async function orgMembers(slug?: string): Promise<void> {
 
   // This endpoint requires Supabase session token, not CLI token.
   // For now, show a message directing to the web UI.
-  process.stderr.write(`View members at: ${process.env.OMM_API_URL || 'https://ohmymermaid.com'}/org/${orgSlug}/settings\n`);
+  process.stderr.write(`View members at: ${getApiUrl()}/org/${orgSlug}/settings\n`);
 }
 
 function printOrgHelp(): void {

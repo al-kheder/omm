@@ -16,10 +16,10 @@ Analyze the codebase and generate `.omm/` architecture documentation using **per
 ## Prerequisites
 
 ```bash
-command -v omm || npm install -g oh-my-mermaid
+command -v omm || npm install -g github:al-kheder/omm
 ```
 
-If the install fails, tell the user: "Please run `npm install -g oh-my-mermaid` in your terminal, then try again."
+If the install fails, tell the user: "Please run `npm install -g github:al-kheder/omm` in your terminal, then try again."
 
 ---
 
@@ -156,6 +156,15 @@ Report what was created/updated and suggest `omm view` to view.
   ```
 
 - Every edge must have a meaningful label: `A -->|"why this connection exists"| B`
+- **Cross-references** link to an element documented elsewhere. Put `@` plus the element path at the start of the label:
+  - `@data-flow` points to a perspective.
+  - `@overall-architecture/server` points to a nested element.
+
+  ```text
+  viewer["@overall-architecture/server\nsrc/server/"]
+  ```
+
+  Only reference elements that exist, and never reference an ancestor of the current element. Run `omm validate` after writing diagrams; it reports broken references.
 - More elements in one diagram means you should recurse deeper.
 - Use `graph LR` for most diagrams, `graph TD` for hierarchies.
 - Use `classDef` for visual distinction when helpful:

@@ -12,11 +12,12 @@ import {
   writeField,
   readNodeField,
   writeNodeField,
+  parseElementPath,
 } from '../lib/store.js';
 import type { Field } from '../types.js';
 
 function parsePath(targetPath: string): { perspective: string; nodePath: string[] } {
-  const parts = targetPath.split('/');
+  const parts = parseElementPath(targetPath);
   return { perspective: parts[0], nodePath: parts.slice(1) };
 }
 

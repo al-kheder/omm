@@ -1,6 +1,9 @@
 import { execSync } from 'node:child_process';
 import type { Platform } from './types.js';
 import { getPackageVersion, hasCommand } from './utils.js';
+import { CLAUDE_MARKETPLACE, CLAUDE_PLUGIN, REPO_SLUG } from '../package-info.js';
+
+const PLUGIN_REF = `${CLAUDE_PLUGIN}@${CLAUDE_MARKETPLACE}`;
 
 function run(cmd: string): { ok: boolean; out: string } {
   try {
@@ -52,24 +55,24 @@ export const claude: Platform = {
     if (installed) {
       const current = getPackageVersion();
       process.stderr.write(`  Updating ${installed} → ${current}...\n`);
-      run('claude plugin uninstall oh-my-mermaid 2>&1');
+      run(`claude plugin uninstall ${PLUGIN_REF} 2>&1`);
     }
 
     // Add marketplace (may already exist — ignore error)
-    run('claude plugin marketplace add oh-my-mermaid/oh-my-mermaid');
+    run(`claude plugin marketplace add ${REPO_SLUG}`);
 
-    const { ok, out } = run('claude plugin install oh-my-mermaid 2>&1');
+    const { ok, out } = run(`claude plugin install ${PLUGIN_REF} 2>&1`);
     if (!ok) {
       process.stderr.write(`  Could not auto-install plugin. Run manually:\n`);
-      process.stderr.write(`    claude plugin marketplace add oh-my-mermaid/oh-my-mermaid\n`);
-      process.stderr.write(`    claude plugin install oh-my-mermaid\n`);
+      process.stderr.write(`    claude plugin marketplace add ${REPO_SLUG}\n`);
+      process.stderr.write(`    claude plugin install ${PLUGIN_REF}\n`);
       return;
     }
     process.stderr.write(`  ${out}\n`);
   },
 
   teardown(): void {
-    run('claude plugin uninstall oh-my-mermaid 2>&1');
-    run('claude plugin marketplace remove oh-my-mermaid 2>&1');
+    run(`claude plugin uninstall ${PLUGIN_REF} 2>&1`);
+    run(`claude plugin marketplace remove ${CLAUDE_MARKETPLACE} 2>&1`);
   },
 };

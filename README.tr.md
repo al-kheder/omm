@@ -9,7 +9,6 @@
 <h1 align="center">Oh-my-mermaid</h1>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/oh-my-mermaid"><img src="https://img.shields.io/npm/v/oh-my-mermaid" alt="npm version"/></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
 </p>
 
@@ -26,7 +25,7 @@
 Aşağıdaki komutu terminale yapıştırın:
 
 ```bash
-npm install -g oh-my-mermaid && omm setup
+npm install -g github:al-kheder/omm && omm setup
 ```
 
 Ardından kullandığınız AI kodlama aracını açın ve `/omm-scan` yeteneğini çalıştırın:
@@ -95,17 +94,19 @@ Yetenekler, **AI kodlama aracınızın içinde** çalıştırdığınız komutla
 | Yetenek | Açıklama |
 | --- | --- |
 | `/omm-scan` | Kod tabanını analiz eder → mimari dokümantasyon üretir |
+| `/omm-view` | Mimari görüntüleyiciyi tarayıcıda açar |
 | `/omm-push` | Giriş + bağlama + buluta gönderme işlemini tek adımda tamamlar |
 
-## Bulut
+## Bulut (isteğe bağlı)
 
-Mimarinizi [ohmymermaid.com](https://ohmymermaid.com) üzerinden bulutta saklayabilirsiniz.
+Her şey yerel olarak çalışır; hesap veya sunucu gerekmez. `login`, `link`, `push` ve `pull` komutları yalnızca uyumlu bir sunucu belirttiğinizde çalışır:
 
 ```bash
+export OMM_API_URL=https://your-server.example
 omm login && omm link && omm push
 ```
 
-Varsayılan olarak özeldir. İsterseniz ekibinizle paylaşabilir ya da [bu örnekte olduğu gibi](https://ohmymermaid.com/share/c47e20a7063c231760361ed9cb9ec4b6) herkese açık hale getirebilirsiniz.
+Varsayılan olarak yapılandırılmış bir sunucu yoktur.
 
 ## Desteklenen AI Araçları
 
@@ -126,8 +127,8 @@ Bkz. [docs/ROADMAP.md](./docs/ROADMAP.md).
 ## Geliştirme ve Katkı
 
 ```bash
-git clone https://github.com/oh-my-mermaid/oh-my-mermaid.git
-cd oh-my-mermaid
+git clone https://github.com/al-kheder/omm.git
+cd omm
 npm install && npm run build
 npm test
 ```

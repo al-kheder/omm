@@ -4,7 +4,6 @@ import os from 'node:os';
 
 const CREDENTIALS_DIR = path.join(os.homedir(), '.omm');
 const CREDENTIALS_FILE = path.join(CREDENTIALS_DIR, 'credentials.json');
-const DEFAULT_API_URL = 'https://ohmymermaid.com';
 
 interface Credentials {
   token?: string;
@@ -28,8 +27,15 @@ export function getCredentialsPath(): string {
   return CREDENTIALS_FILE;
 }
 
+/**
+ * Cloud sync is opt-in: there is no default server. Throws when OMM_API_URL is unset.
+ */
 export function getApiUrl(): string {
-  return process.env.OMM_API_URL || DEFAULT_API_URL;
+  const url = process.env.OMM_API_URL;
+  if (!url) {
+    throw new Error('cloud sync is not configured. Set OMM_API_URL to a compatible server to use cloud commands.');
+  }
+  return url.replace(/\/+$/, '');
 }
 
 function readCredentials(): Credentials {

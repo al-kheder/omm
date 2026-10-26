@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { commandInit } from './commands/init.js';
-import { commandClassField } from './commands/class-field.js';
 import { commandList } from './commands/list.js';
 import { commandShow } from './commands/show.js';
 import { commandDelete } from './commands/delete.js';
@@ -45,10 +44,11 @@ Usage:
   omm diff <path>                   Compare current vs previous diagram
   omm refs <path>                   Show elements that reference this element
   omm validate [path]               Validate diagram(s) for syntax and conventions
-  omm view [--port <port>]         Start web viewer (default: 3000)
+  omm view [--port <port>] [--host <addr>]
+                                    Start web viewer (default: localhost:3000)
 
-Cloud:
-  omm login                         Log in to omm.dev
+Cloud (optional, requires OMM_API_URL):
+  omm login                         Log in to the cloud server
   omm logout                        Log out
   omm link [org/slug]                Link project to a cloud slug
   omm push                          Push .omm/ to cloud
@@ -137,7 +137,7 @@ async function main(): Promise<void> {
 
     case 'diff':
       if (!args[1]) {
-        process.stderr.write('error: omm diff <class>\n');
+        process.stderr.write('error: omm diff <path>\n');
         process.exit(1);
       }
       commandDiff(args[1]);
@@ -155,7 +155,7 @@ async function main(): Promise<void> {
         className = args[2];
       }
       if (!className) {
-        process.stderr.write('error: omm refs [--reverse] <class>\n');
+        process.stderr.write('error: omm refs [--reverse] <path>\n');
         process.exit(1);
       }
       commandRefs(className, reverse);
@@ -164,14 +164,22 @@ async function main(): Promise<void> {
 
     case 'view': {
       let port = 3000;
-      if (args[1] === '--port' && args[2]) {
-        port = parseInt(args[2], 10);
-        if (isNaN(port)) {
-          process.stderr.write('error: invalid port number\n');
+      let host: string | undefined;
+      for (let i = 1; i < args.length; i++) {
+        if (args[i] === '--port' && args[i + 1]) {
+          port = parseInt(args[++i], 10);
+          if (isNaN(port)) {
+            process.stderr.write('error: invalid port number\n');
+            process.exit(1);
+          }
+        } else if (args[i] === '--host' && args[i + 1]) {
+          host = args[++i];
+        } else {
+          process.stderr.write('error: omm view [--port <port>] [--host <addr>]\n');
           process.exit(1);
         }
       }
-      commandView(port);
+      commandView(port, host);
       return;
     }
 
