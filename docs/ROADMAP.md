@@ -11,7 +11,7 @@ This is the roadmap for the fork at `al-kheder/omm`. The evidence behind each it
 | Release | Theme | Status |
 |---|---|---|
 | v0.2.1 | Reliability: safety, correctness, CI | **done** (not yet released). Design: [design/v0.2.1-reliability.md](./design/v0.2.1-reliability.md). Changes: [CHANGELOG.md](../CHANGELOG.md) |
-| v0.3.0 | New diagram types | **in progress**: ER diagrams done |
+| v0.3.0 | New diagram types | **in progress**: ER and sequence diagrams done |
 | v0.4.0 | `omm search` and the `/omm-ask` skill | approved (order); design not started |
 | v0.5.0 | Incremental analysis | proposed |
 | later | Change-impact analysis, the `/omm-guide` skill | proposed |
@@ -46,7 +46,7 @@ New Mermaid diagram *types* beyond flowcharts, added one at a time. Design: [des
 | Type | Use for | Status |
 |---|---|---|
 | `erDiagram` | Data models: database schemas, ORM models, file formats | **done** |
-| `sequenceDiagram` | Request lifecycles, message exchanges between components | proposed |
+| `sequenceDiagram` | Request lifecycles, message exchanges between components | **done** |
 | `stateDiagram-v2` | State machines, the `state-transitions` perspective | proposed |
 | `classDiagram` | Type hierarchies and interfaces | proposed |
 

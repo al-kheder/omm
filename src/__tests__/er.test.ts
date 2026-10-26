@@ -35,7 +35,8 @@ describe('detectDiagramType', () => {
     expect(detectDiagramType('flowchart TD\n a --> b')).toBe('flowchart');
     expect(detectDiagramType('%% comment\nerDiagram\n a ||--o{ b : x')).toBe('er');
     expect(detectDiagramType('---\ntitle: Shop\n---\nerDiagram\n a ||--o{ b : x')).toBe('er');
-    expect(detectDiagramType('sequenceDiagram\n a->>b: hi')).toBe('unknown');
+    expect(detectDiagramType('sequenceDiagram\n a->>b: hi')).toBe('sequence');
+    expect(detectDiagramType('pie\n "a" : 1')).toBe('unknown');
     expect(detectDiagramType('')).toBe('unknown');
   });
 });

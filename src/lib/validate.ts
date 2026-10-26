@@ -1,6 +1,8 @@
 import { parseMermaid } from './diff.js';
 import { extractRefs } from './refs.js';
-import { detectDiagramType, parseErDiagram } from './er.js';
+import { detectDiagramType } from './diagram.js';
+import { parseErDiagram } from './er.js';
+import { parseSequenceDiagram } from './sequence.js';
 import type { ValidationIssue, ValidationResult } from '../types.js';
 
 // --- Source-of-truth constants ---
@@ -64,7 +66,7 @@ function checkFlowchart(text: string, issues: ValidationIssue[]): void {
     issues.push({
       level: 'error',
       rule: 'graph-declaration',
-      message: 'Diagram must start with a graph/flowchart direction declaration (e.g., "graph LR") or with "erDiagram"',
+      message: 'Diagram must start with a graph/flowchart direction declaration (e.g., "graph LR"), "erDiagram" or "sequenceDiagram"',
       line: 1,
     });
   }
@@ -151,6 +153,51 @@ function checkErDiagram(text: string, issues: ValidationIssue[]): void {
   }
 }
 
+// --- Sequence diagram rules ---
+
+const MAX_MESSAGES = 30;
+
+function checkSequenceDiagram(text: string, issues: ValidationIssue[]): void {
+  const seq = parseSequenceDiagram(text);
+
+  // Rule: seq-syntax — anything the parser could not read
+  for (const error of seq.errors) {
+    issues.push({ level: 'error', rule: 'seq-syntax', message: error.message, line: error.line });
+  }
+
+  const messages = seq.events.filter(e => e.kind === 'message');
+
+  // Rule: seq-unused-participant — a declared participant that never sends, receives or has a note
+  if (seq.participants.size > 1) {
+    const used = new Set<string>();
+    for (const e of seq.events) {
+      if (e.kind === 'message') { used.add(e.from); used.add(e.to); }
+      else if (e.kind === 'note') e.participants.forEach(p => used.add(p));
+    }
+    for (const id of seq.participants.keys()) {
+      if (!used.has(id)) {
+        issues.push({ level: 'warning', rule: 'seq-unused-participant', message: `Participant ${id} has no messages` });
+      }
+    }
+  }
+
+  // Rule: seq-message-label — every message should say what is sent
+  for (const m of messages) {
+    if (!m.text) {
+      issues.push({ level: 'warning', rule: 'seq-message-label', message: `Message without text: ${m.from} ${m.arrow} ${m.to}`, line: m.line });
+    }
+  }
+
+  // Rule: message-count — long sequences are hard to read
+  if (messages.length > MAX_MESSAGES) {
+    issues.push({
+      level: 'warning',
+      rule: 'message-count',
+      message: `${messages.length} messages (recommended: at most ${MAX_MESSAGES}). Consider splitting into several sequence diagrams.`,
+    });
+  }
+}
+
 // --- Main validation function ---
 
 export interface ValidateContext {
@@ -164,6 +211,8 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
 
   if (type === 'er') {
     checkErDiagram(text, issues);
+  } else if (type === 'sequence') {
+    checkSequenceDiagram(text, issues);
   } else {
     checkFlowchart(text, issues);
   }
@@ -195,11 +244,11 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     }
   }
 
-  // Rule: node-count (uses parseMermaid for counting only; entities for ER diagrams)
+  // Rule: node-count (uses parseMermaid for counting only; entities for ER, participants for sequence diagrams)
   const parsed = parseMermaid(text);
   const nodeCount = parsed.nodes.size;
-  const unit = type === 'er' ? 'entities' : 'nodes';
-  if (nodeCount > 0 && nodeCount < 3 && type !== 'er') {
+  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : 'nodes';
+  if (nodeCount > 0 && nodeCount < 3 && type !== 'er' && type !== 'sequence') {
     issues.push({
       level: 'warning',
       rule: 'node-count',
