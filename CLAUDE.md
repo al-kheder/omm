@@ -13,6 +13,13 @@
 - When updating `README.md`, update all translations in the same commit
 - Translations can be machine-generated but should be reviewed for obvious errors
 
+## Package Manager
+
+- Use pnpm for development: `pnpm install`, `pnpm test`, `pnpm build`, `pnpm typecheck`. The version is pinned in `package.json` `packageManager`; run `corepack enable` to get it.
+- Don't add a `package-lock.json` or `yarn.lock`. `pnpm-lock.yaml` is the only lockfile.
+- Keep lifecycle scripts (`prepare`, `prepublishOnly`) free of `pnpm`/`npm` calls. Users install the CLI with `npm install -g github:al-kheder/omm`, and `prepare` runs under their npm.
+- Packages with install scripts must be listed in `pnpm.onlyBuiltDependencies`.
+
 ## Versioning
 
 - Follow [Semantic Versioning](https://semver.org/)

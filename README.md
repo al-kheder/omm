@@ -129,8 +129,9 @@ See [docs/ROADMAP.md](./docs/ROADMAP.md).
 ```bash
 git clone https://github.com/al-kheder/omm.git
 cd omm
-npm install && npm run build
-npm test
+corepack enable   # provides the pinned pnpm version
+pnpm install && pnpm build
+pnpm test
 ```
 
 Issues and PRs welcome. Use [Conventional Commits](https://www.conventionalcommits.org/).

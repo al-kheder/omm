@@ -7,44 +7,28 @@ function readJson(rootDir, relativePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
+// pnpm-lock.yaml does not record the package's own version, so only the manifests are compared
 export function collectVersionInfo(rootDir = process.cwd()) {
   const pkg = readJson(rootDir, 'package.json');
   const plugin = readJson(rootDir, '.claude-plugin/plugin.json');
   const marketplace = readJson(rootDir, '.claude-plugin/marketplace.json');
-  const lockfile = readJson(rootDir, 'package-lock.json');
 
   return {
     packageVersion: pkg.version,
     pluginVersion: plugin.version,
     marketplaceVersion: marketplace.plugins?.[0]?.version ?? null,
-    lockfileVersion: lockfile.version,
-    lockfileRootVersion: lockfile.packages?.['']?.version ?? null,
   };
 }
 
 export function getVersionMismatchMessages(versions) {
   const mismatches = [];
-  const {
-    packageVersion,
-    pluginVersion,
-    marketplaceVersion,
-    lockfileVersion,
-    lockfileRootVersion,
-  } = versions;
+  const { packageVersion, pluginVersion, marketplaceVersion } = versions;
 
   if (packageVersion !== pluginVersion) {
     mismatches.push(`plugin.json version (${pluginVersion}) != package.json (${packageVersion})`);
   }
   if (packageVersion !== marketplaceVersion) {
     mismatches.push(`marketplace.json version (${marketplaceVersion}) != package.json (${packageVersion})`);
-  }
-  if (packageVersion !== lockfileVersion) {
-    mismatches.push(`package-lock.json version (${lockfileVersion}) != package.json (${packageVersion})`);
-  }
-  if (packageVersion !== lockfileRootVersion) {
-    mismatches.push(
-      `package-lock.json packages[""] version (${lockfileRootVersion}) != package.json (${packageVersion})`,
-    );
   }
 
   return mismatches;
@@ -58,7 +42,7 @@ export function runVersionSyncCheck(rootDir = process.cwd()) {
     for (const mismatch of mismatches) {
       process.stderr.write(`::error::${mismatch}\n`);
     }
-    process.stderr.write('\nRun: npm version <patch|minor|major> && npm run sync-version\n');
+    process.stderr.write('\nRun: pnpm version <patch|minor|major> && pnpm sync-version\n');
     process.exitCode = 1;
     return;
   }

@@ -20,9 +20,13 @@ jobs:
         with:
           fetch-depth: 2
 
+      # Uses the version pinned in package.json "packageManager"
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: pnpm
           registry-url: https://registry.npmjs.org
 
       - name: Check if version changed
@@ -87,16 +91,17 @@ jobs:
       - name: Install, test, build, sync
         if: steps.release_gate.outputs.should_release == 'true'
         run: |
-          npm ci
-          npm test
-          npm run build
-          npm run sync-version
-          npm run check-version-sync
-          git diff --exit-code -- .claude-plugin/plugin.json .claude-plugin/marketplace.json package-lock.json
+          pnpm install --frozen-lockfile
+          pnpm test
+          pnpm build
+          pnpm sync-version
+          pnpm check-version-sync
+          git diff --exit-code -- .claude-plugin/plugin.json .claude-plugin/marketplace.json
 
       - name: Publish to npm
         if: steps.release_gate.outputs.should_release == 'true' && steps.release_state.outputs.npm_published != 'true'
-        run: npm publish --provenance --access public
+        # --no-git-checks: the job runs on a detached checkout of main
+        run: pnpm publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
