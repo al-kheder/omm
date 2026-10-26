@@ -63,18 +63,29 @@ function getViewerHtml(): string {
   return '<html><body><h1>viewer.html not found</h1></body></html>';
 }
 
+/** This package's own browser bundle (shared parsers), built by tsup into dist/ */
+function findViewerBundle(): string | null {
+  const candidates = [
+    path.join(__dirname, 'omm-viewer.global.js'),                   // dist/
+    path.join(__dirname, '..', '..', 'dist', 'omm-viewer.global.js'), // src/server/ (dev, tests)
+  ];
+  return candidates.find(p => fs.existsSync(p)) ?? null;
+}
+
 function serveVendor(name: string, res: http.ServerResponse): void {
-  const modulePath = VENDOR_FILES[name];
-  if (!modulePath) {
+  const filePath = name === 'omm.js'
+    ? findViewerBundle()
+    : VENDOR_FILES[name] ? require.resolve(VENDOR_FILES[name]) : null;
+  if (!filePath) {
     res.writeHead(404);
     res.end('Not Found');
     return;
   }
   res.writeHead(200, {
     'Content-Type': 'application/javascript; charset=utf-8',
-    'Cache-Control': 'max-age=86400',
+    'Cache-Control': name === 'omm.js' ? 'no-cache' : 'max-age=86400',
   });
-  res.end(fs.readFileSync(require.resolve(modulePath)));
+  res.end(fs.readFileSync(filePath));
 }
 
 export function createViewerServer(bindHost: string = DEFAULT_HOST): http.Server {

@@ -51,6 +51,9 @@ export interface DiffResult {
   added_edges: string[];
   removed_edges: string[];
   has_changes: boolean;
+  /** ER diagrams only: "entity.attribute" entries */
+  added_attributes?: string[];
+  removed_attributes?: string[];
 }
 
 export interface RefEntry {

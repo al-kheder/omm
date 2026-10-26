@@ -60,6 +60,7 @@ From the catalog below, choose which perspectives are meaningful for this codeba
 | `pipeline` | ML/data pipelines | Stage topology and data flow |
 | `orchestration` | Event-driven/queue systems | Publisher, subscriber, broker topology |
 | `storage` | 2+ storage systems | Storage topology (DB, cache, queue, object store) |
+| `data-model` | Database schema, ORM models, persisted file formats | What data exists and how entities relate. Uses an **ER diagram**; see "ER Diagram Rules" |
 
 Don't force perspectives that don't exist in the code.
 
@@ -182,6 +183,63 @@ Report what was created/updated and suggest `omm view` to view.
   classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
   classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
   ```
+
+## ER Diagram Rules
+
+Use an `erDiagram` instead of a flowchart when the element is about **data shape**:
+
+- database tables
+- ORM/entity classes
+- persisted documents
+- file formats
+
+Keep using flowcharts for components, flows and dependencies.
+
+```bash
+omm write data-model diagram - <<'MERMAID'
+erDiagram
+    user ||--o{ order : places
+    order ||--|{ order-item : contains
+    product ||--o{ order-item : "appears in"
+    user {
+        uuid id PK
+        string email UK "login name"
+    }
+    order {
+        uuid id PK
+        uuid user_id FK
+        decimal total
+    }
+MERMAID
+```
+
+**Entities**
+
+- Name entities after the real table or model in kebab-case (`order-item`), not invented names.
+- If an entity is documented in more detail, its child element directory must have the same name. For example, `data-model/order-item/description`, with the source file and the code that writes it.
+
+**Relationships**
+
+Write each relationship as `A <left><line><right> B : label`. A label is required; quote it when it has spaces.
+
+| Marker | Meaning |
+| --- | --- |
+| `\|\|` | exactly one |
+| `\|o` / `o\|` | zero or one |
+| `}\|` / `\|{` | one or more |
+| `}o` / `o{` | zero or more |
+| `--` | identifying (the child cannot exist without the parent) |
+| `..` | non-identifying |
+
+**Attributes**
+
+- Write each attribute as `type name [PK|FK|UK] ["comment"]`. Combine keys with commas (`PK, FK`).
+- List only the attributes that matter for understanding: keys, foreign keys, and fields with business meaning. Don't copy every column.
+
+**Size and checking**
+
+- Keep 3–15 entities per diagram. Split large schemas by domain (for example `data-model/billing`, `data-model/catalog`), each with its own ER diagram.
+- Run `omm validate` afterwards. It reports ER syntax errors with line numbers, and entities without relationships.
 
 ## General Rules
 

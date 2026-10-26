@@ -76,6 +76,8 @@ AI가 코드베이스를 분석하고 **관점(perspective)** 을 생성합니�
 
 각 element는 최대 7개 필드를 가집니다: `description`, `diagram`, `context`, `constraint`, `concern`, `todo`, `note`.
 
+다이어그램은 플로우차트(`graph` / `flowchart`) 또는 데이터베이스 스키마 같은 데이터 모델을 위한 ER 다이어그램(`erDiagram`)입니다. 두 형식 모두 `omm validate`로 검증되고 뷰어에서 렌더링됩니다.
+
 ## CLI
 
 ```bash

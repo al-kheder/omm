@@ -76,6 +76,8 @@ AI 分析代码库并生成 **视角（perspective）** — 观察架构的不�
 
 每个元素最多包含 7 个字段：`description`、`diagram`、`context`、`constraint`、`concern`、`todo`、`note`。
 
+图表可以是流程图（`graph` / `flowchart`），也可以是用于数据库结构等数据模型的 ER 图（`erDiagram`）。两者都由 `omm validate` 校验，并在查看器中渲染。
+
 ## CLI
 
 ```bash

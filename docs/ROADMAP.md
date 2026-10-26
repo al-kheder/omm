@@ -11,7 +11,7 @@ This is the roadmap for the fork at `al-kheder/omm`. The evidence behind each it
 | Release | Theme | Status |
 |---|---|---|
 | v0.2.1 | Reliability: safety, correctness, CI | **done** (not yet released). Design: [design/v0.2.1-reliability.md](./design/v0.2.1-reliability.md). Changes: [CHANGELOG.md](../CHANGELOG.md) |
-| v0.3.0 | New diagram types | proposed |
+| v0.3.0 | New diagram types | **in progress**: ER diagrams done |
 | v0.4.0 | `omm search` and the `/omm-ask` skill | approved (order); design not started |
 | v0.5.0 | Incremental analysis | proposed |
 | later | Change-impact analysis, the `/omm-guide` skill | proposed |
@@ -39,15 +39,25 @@ These fixes had to come before any new features. All are implemented with tests.
 - **One metadata format** for top-level and nested elements, including the git baseline (R6).
 - **CI on every pull request** (type check, tests, build on Linux and Windows), fix the existing type errors, and small clean-ups (R7, R13–R15).
 
-## v0.3.0 — New diagram types (proposed)
+## v0.3.0 — New diagram types (in progress)
 
-**Assumption, still to confirm:** "new diagrams" means new Mermaid diagram *types*, for example `sequenceDiagram`, `stateDiagram-v2`, `erDiagram` and `classDiagram`.
+New Mermaid diagram *types* beyond flowcharts, added one at a time. Design: [design/v0.3.0-diagram-types.md](./design/v0.3.0-diagram-types.md).
 
-Today the validator, the parser and the viewer only handle `graph`/`flowchart`. Supporting more types means:
+| Type | Use for | Status |
+|---|---|---|
+| `erDiagram` | Data models: database schemas, ORM models, file formats | **done** |
+| `sequenceDiagram` | Request lifecycles, message exchanges between components | proposed |
+| `stateDiagram-v2` | State machines, the `state-transitions` perspective | proposed |
+| `classDiagram` | Type hierarchies and interfaces | proposed |
 
-- the validator rules and the parser recognise each type, or skip it explicitly
-- the viewer renders the non-flowchart types, most likely with a pinned, bundled mermaid.js used only for those
-- `/omm-scan` learns when to choose each type, e.g. sequence diagrams for the request lifecycle and ER diagrams for storage
+Each type needs:
+
+- a shared parser in `src/lib/`, used by `validate`, `diff` and the viewer
+- validation rules
+- a renderer in the viewer's own style
+- guidance in `/omm-scan` on when to use it
+
+The viewer does **not** load mermaid.js. Instead, each type gets a native renderer built on dagre, so diagrams look consistent, stay small, and can be expanded as nested groups.
 
 ## v0.4.0 — Search and question answering (approved order)
 

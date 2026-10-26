@@ -1,0 +1,1 @@
+The filesystem is the database: an element's identity is its directory path, and nesting is directory nesting. This keeps the docs diffable in git and editable by hand, and lets the CLI stay deterministic. All writes go through `store.ts`, which rejects paths that would leave `.omm/` and records the git commit of every write in `meta.yaml`.

@@ -1,5 +1,6 @@
 import { parseMermaid } from './diff.js';
 import { extractRefs } from './refs.js';
+import { detectDiagramType, parseErDiagram } from './er.js';
 import type { ValidationIssue, ValidationResult } from '../types.js';
 
 // --- Source-of-truth constants ---
@@ -19,7 +20,6 @@ const GRAPH_DECL = /^(graph|flowchart)\s+(LR|RL|TD|TB|BT)\s*$/i;
 const DIRECTIVE_LINE = /^(graph|flowchart|classDef|class |click |style |linkStyle|subgraph|end$|%%)/i;
 
 // Edges we check for labels in v1: -->, ==>, -.->
-const EDGE_WITH_LABEL = /(-->|==>|-\.->)\s*$/;
 const EDGE_LINE = /(-->|==>|-.->)/;
 const EDGE_HAS_LABEL = /\|.*?\|/;
 
@@ -53,15 +53,9 @@ function formatAvailable(elements: string[], max = 10): string {
   return elements.length > max ? `${shown}, … (${elements.length - max} more, see 'omm tree')` : shown;
 }
 
-// --- Main validation function ---
+// --- Flowchart rules ---
 
-export interface ValidateContext {
-  className: string;
-  allClasses: string[];
-}
-
-export function validateDiagram(text: string, context?: ValidateContext): ValidationResult {
-  const issues: ValidationIssue[] = [];
+function checkFlowchart(text: string, issues: ValidationIssue[]): void {
   const lines = text.split('\n');
   const contentLines = lines.map(l => l.trim()).filter(l => l && !l.startsWith('%%'));
 
@@ -70,7 +64,7 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     issues.push({
       level: 'error',
       rule: 'graph-declaration',
-      message: 'Diagram must start with a graph/flowchart direction declaration (e.g., "graph LR")',
+      message: 'Diagram must start with a graph/flowchart direction declaration (e.g., "graph LR") or with "erDiagram"',
       line: 1,
     });
   }
@@ -134,6 +128,45 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
       }
     }
   }
+}
+
+// --- ER diagram rules ---
+
+function checkErDiagram(text: string, issues: ValidationIssue[]): void {
+  const er = parseErDiagram(text);
+
+  // Rule: er-syntax — anything the parser could not read
+  for (const error of er.errors) {
+    issues.push({ level: 'error', rule: 'er-syntax', message: error.message, line: error.line });
+  }
+
+  // Rule: er-orphan-entity — an entity with no relationships is usually a mistake in a multi-entity diagram
+  if (er.entities.size > 1) {
+    const related = new Set(er.relationships.flatMap(r => [r.from, r.to]));
+    for (const name of er.entities.keys()) {
+      if (!related.has(name)) {
+        issues.push({ level: 'warning', rule: 'er-orphan-entity', message: `Entity ${name} has no relationships` });
+      }
+    }
+  }
+}
+
+// --- Main validation function ---
+
+export interface ValidateContext {
+  className: string;
+  allClasses: string[];
+}
+
+export function validateDiagram(text: string, context?: ValidateContext): ValidationResult {
+  const issues: ValidationIssue[] = [];
+  const type = detectDiagramType(text);
+
+  if (type === 'er') {
+    checkErDiagram(text, issues);
+  } else {
+    checkFlowchart(text, issues);
+  }
 
   // Rule: ref-exists, ref-self and ref-ancestor (only when context provided).
   // allClasses holds every element path, so @persp/child refs resolve too.
@@ -162,20 +195,21 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     }
   }
 
-  // Rule: node-count (uses parseMermaid for counting only)
+  // Rule: node-count (uses parseMermaid for counting only; entities for ER diagrams)
   const parsed = parseMermaid(text);
   const nodeCount = parsed.nodes.size;
-  if (nodeCount > 0 && nodeCount < 3) {
+  const unit = type === 'er' ? 'entities' : 'nodes';
+  if (nodeCount > 0 && nodeCount < 3 && type !== 'er') {
     issues.push({
       level: 'warning',
       rule: 'node-count',
-      message: `${nodeCount} nodes (recommended: 5-15). Diagram may be too simple.`,
+      message: `${nodeCount} ${unit} (recommended: 5-15). Diagram may be too simple.`,
     });
   } else if (nodeCount > 15) {
     issues.push({
       level: 'warning',
       rule: 'node-count',
-      message: `${nodeCount} nodes (recommended: 5-15). Consider splitting into sub-diagrams.`,
+      message: `${nodeCount} ${unit} (recommended: 5-15). Consider splitting into sub-diagrams.`,
     });
   }
 

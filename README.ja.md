@@ -76,6 +76,8 @@ AIがコードベースを分析し、**パースペクティブ**を生成し�
 
 各エレメントは最大7つのフィールドを持ちます：`description`、`diagram`、`context`、`constraint`、`concern`、`todo`、`note`。
 
+ダイアグラムはフローチャート（`graph` / `flowchart`）、またはデータベーススキーマなどのデータモデル用のER図（`erDiagram`）です。どちらも `omm validate` で検証され、ビューアーで表示されます。
+
 ## CLI
 
 ```bash

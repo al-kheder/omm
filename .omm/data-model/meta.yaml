@@ -1,0 +1,10 @@
+created: 2026-10-26T09:59:46.698Z
+updated: 2026-10-26T09:59:47.004Z
+update_count: 3
+last_field: context
+kind: perspective
+title: data-model
+children:
+  - meta
+git_commit: 12a4ea1
+git_branch: fork-v0.2.1

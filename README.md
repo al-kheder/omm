@@ -74,6 +74,8 @@ The viewer auto-detects nesting from the filesystem — elements with children r
 
 Each element carries up to 7 fields: `description`, `diagram`, `context`, `constraint`, `concern`, `todo`, `note`.
 
+Diagrams are flowcharts (`graph` / `flowchart`), or ER diagrams (`erDiagram`) for data models such as database schemas. Both are validated by `omm validate` and rendered by the viewer.
+
 ## CLI
 
 ```bash
