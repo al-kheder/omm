@@ -45,7 +45,8 @@ Usage:
   omm diff <path>                   Compare current vs previous diagram
   omm refs <path>                   Show elements that reference this element
   omm validate [path]               Validate diagram(s) for syntax and conventions
-  omm view [--port <port>]         Start web viewer (default: 3000)
+  omm view [--port <port>] [--host <addr>]
+                                    Start web viewer (default: localhost:3000)
 
 Cloud (optional, requires OMM_API_URL):
   omm login                         Log in to the cloud server
@@ -164,14 +165,22 @@ async function main(): Promise<void> {
 
     case 'view': {
       let port = 3000;
-      if (args[1] === '--port' && args[2]) {
-        port = parseInt(args[2], 10);
-        if (isNaN(port)) {
-          process.stderr.write('error: invalid port number\n');
+      let host: string | undefined;
+      for (let i = 1; i < args.length; i++) {
+        if (args[i] === '--port' && args[i + 1]) {
+          port = parseInt(args[++i], 10);
+          if (isNaN(port)) {
+            process.stderr.write('error: invalid port number\n');
+            process.exit(1);
+          }
+        } else if (args[i] === '--host' && args[i + 1]) {
+          host = args[++i];
+        } else {
+          process.stderr.write('error: omm view [--port <port>] [--host <addr>]\n');
           process.exit(1);
         }
       }
-      commandView(port);
+      commandView(port, host);
       return;
     }
 

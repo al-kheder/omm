@@ -9,7 +9,6 @@ export function addSSEClient(res: ServerResponse): void {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*',
   });
   res.write('data: connected\n\n');
   clients.add(res);
@@ -34,13 +33,21 @@ export function startWatcher(): void {
   const dir = getOmmDir();
   if (!fs.existsSync(dir)) return;
 
-  watcher = fs.watch(dir, { recursive: true }, (_event, filename) => {
+  const onChange = (_event: string, filename: string | Buffer | null) => {
     // Debounce rapid changes
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      broadcast('change', JSON.stringify({ file: filename, time: Date.now() }));
+      broadcast('change', JSON.stringify({ file: filename?.toString() ?? null, time: Date.now() }));
     }, 300);
-  });
+  };
+
+  try {
+    watcher = fs.watch(dir, { recursive: true }, onChange);
+  } catch {
+    // Recursive watching is unsupported on Linux before Node 20: fall back to top-level changes only
+    process.stderr.write('note: live reload only tracks top-level changes on this platform (Node 20+ tracks all)\n');
+    watcher = fs.watch(dir, onChange);
+  }
 
   watcher.on('error', () => {
     // Silently handle watcher errors
