@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { commandInit } from './commands/init.js';
-import { commandClassField } from './commands/class-field.js';
 import { commandList } from './commands/list.js';
 import { commandShow } from './commands/show.js';
 import { commandDelete } from './commands/delete.js';
@@ -138,7 +137,7 @@ async function main(): Promise<void> {
 
     case 'diff':
       if (!args[1]) {
-        process.stderr.write('error: omm diff <class>\n');
+        process.stderr.write('error: omm diff <path>\n');
         process.exit(1);
       }
       commandDiff(args[1]);
@@ -156,7 +155,7 @@ async function main(): Promise<void> {
         className = args[2];
       }
       if (!className) {
-        process.stderr.write('error: omm refs [--reverse] <class>\n');
+        process.stderr.write('error: omm refs [--reverse] <path>\n');
         process.exit(1);
       }
       commandRefs(className, reverse);

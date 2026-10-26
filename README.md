@@ -92,6 +92,7 @@ Skills are commands you run **inside your AI coding tool** (not the terminal). T
 | Skill | What it does |
 | --- | --- |
 | `/omm-scan` | Analyze codebase → generate architecture docs |
+| `/omm-view` | Open the architecture viewer in your browser |
 | `/omm-push` | Login + link + push to cloud in one step |
 
 ## Cloud (optional)

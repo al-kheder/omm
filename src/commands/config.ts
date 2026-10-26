@@ -11,13 +11,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import YAML from 'yaml';
 import { ensureOmmForWrite, getOmmDir } from '../lib/store.js';
+import { getPackageVersion } from '../lib/platforms/utils.js';
 import type { OmmConfig } from '../types.js';
 
 const CONFIG_FILE = 'config.yaml';
 
 function readConfig(cwd?: string): OmmConfig {
   const filePath = path.join(getOmmDir(cwd), CONFIG_FILE);
-  if (!fs.existsSync(filePath)) return { version: '0.1.0' };
+  if (!fs.existsSync(filePath)) return { version: getPackageVersion() ?? '0.0.0' };
   return YAML.parse(fs.readFileSync(filePath, 'utf-8')) as OmmConfig;
 }
 

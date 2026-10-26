@@ -3,10 +3,10 @@
 ## README Localization
 
 - `README.md` (English) is the source of truth
-- Maintain translations: `README.ko.md`, `README.ja.md`, `README.zh.md`
+- Maintain translations: `README.tr.md`, `README.ko.md`, `README.ja.md`, `README.zh.md`
 - Every README (including English) must have language links at the top:
   ```
-  [English](./README.md) | [한국어](./README.ko.md) | [日本語](./README.ja.md) | [中文](./README.zh.md)
+  [English](./README.md) | [Türkçe](./README.tr.md) | [한국어](./README.ko.md) | [日本語](./README.ja.md) | [中文](./README.zh.md)
   ```
 - Translated READMEs include a disclaimer at the top:
   > This document was translated from the English README. Some phrasing may be unnatural.

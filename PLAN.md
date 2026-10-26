@@ -1,5 +1,7 @@
 # oh-my-mermaid (omm) — Implementation Plan
 
+> **Historical document.** This is the original design plan (in Korean) and no longer matches the code. For the current plan see [docs/ROADMAP.md](docs/ROADMAP.md); for the current state see [docs/AUDIT.md](docs/AUDIT.md).
+
 ## Context
 
 바이브코딩 시 아키텍처가 비대해지고 개발자가 자기 코드를 이해하지 못하는 문제를 해결하는 도구.

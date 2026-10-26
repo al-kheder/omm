@@ -94,6 +94,7 @@ Yetenekler, **AI kodlama aracınızın içinde** çalıştırdığınız komutla
 | Yetenek | Açıklama |
 | --- | --- |
 | `/omm-scan` | Kod tabanını analiz eder → mimari dokümantasyon üretir |
+| `/omm-view` | Mimari görüntüleyiciyi tarayıcıda açar |
 | `/omm-push` | Giriş + bağlama + buluta gönderme işlemini tek adımda tamamlar |
 
 ## Bulut (isteğe bağlı)

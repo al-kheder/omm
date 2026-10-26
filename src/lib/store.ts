@@ -3,6 +3,7 @@ import path from 'node:path';
 import YAML from 'yaml';
 import { VALID_FIELDS, FIELD_FILES, type Field, type ClassMeta, type ClassData, type OmmConfig } from '../types.js';
 import { getGitInfo } from './meta.js';
+import { getPackageVersion } from './platforms/utils.js';
 
 const OMM_DIR = '.omm';
 const CONFIG_FILE = 'config.yaml';
@@ -50,7 +51,7 @@ export function initOmm(cwd?: string): void {
   }
   const configPath = path.join(dir, CONFIG_FILE);
   if (!fs.existsSync(configPath)) {
-    const config: OmmConfig = { version: '0.1.0' };
+    const config: OmmConfig = { version: getPackageVersion() ?? '0.0.0' };
     fs.writeFileSync(configPath, YAML.stringify(config), 'utf-8');
   }
 }

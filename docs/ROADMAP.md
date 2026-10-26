@@ -10,16 +10,23 @@ This is the roadmap for the fork at `al-kheder/oh-my-mermaid`. The evidence behi
 
 | Release | Theme | Status |
 |---|---|---|
-| v0.2.1 | Reliability: safety, correctness, CI | **approved, awaiting design sign-off**. Design: [design/v0.2.1-reliability.md](./design/v0.2.1-reliability.md) |
+| v0.2.1 | Reliability: safety, correctness, CI | **done** (not yet released). Design: [design/v0.2.1-reliability.md](./design/v0.2.1-reliability.md). Changes: [CHANGELOG.md](../CHANGELOG.md) |
 | v0.3.0 | New diagram types | proposed |
 | v0.4.0 | `omm search` and the `/omm-ask` skill | approved (order); design not started |
 | v0.5.0 | Incremental analysis | proposed |
 | later | Change-impact analysis, the `/omm-guide` skill | proposed |
 | — | Fork identity | **done** |
 
-## v0.2.1 — Reliability (approved)
+## v0.2.1 — Reliability (done)
 
-These fixes have to come before any new features.
+These fixes had to come before any new features. All are implemented with tests. Fixed: R1–R7, R9 (the stale `children` part), R10 (fallback), R13 (partly), R14 and R15.
+
+**Still open:**
+
+- R8: diff for nested elements in the viewer.
+- R11: login improvements.
+- R12: directory symlinks on Windows for setup.
+- Regenerating this repo's own `.omm/` with `/omm-scan`.
 
 - **Keep paths inside `.omm/`** (R1). `write`, `read` and `delete` can currently reach outside it.
 - **Make the viewer local and safe** (R2, R3):

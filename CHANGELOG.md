@@ -1,0 +1,44 @@
+# Changelog
+
+All notable changes to this fork. The format follows [Keep a Changelog](https://keepachangelog.com/), and versions follow [Semantic Versioning](https://semver.org/).
+
+## [Unreleased] — v0.2.1 Reliability
+
+### Breaking changes
+
+- **The viewer only listens on this machine.** `omm view` now binds to `127.0.0.1`. To open it from other devices, run `omm view --host 0.0.0.0`; a warning is printed.
+- **`omm validate` checks every diagram.** With no arguments it now covers nested diagrams too, so projects with errors in nested diagrams now fail validation.
+- **Unsafe element paths are rejected.** Paths such as `../src`, absolute paths, and hidden (`.`-prefixed) segments are refused by every command and by the viewer API.
+- **Cloud sync is opt-in.** There is no default cloud server. `login`, `push`, `pull`, `share` and `org` only work when `OMM_API_URL` is set.
+
+### Fixed
+
+- `omm delete ../src` could delete folders outside `.omm/`. `write` and `read` could also reach outside it.
+- The Mermaid parser mis-read labelled edges (`A -->|"label"| B`). This broke `omm diff` and the node-count check for every diagram produced by `/omm-scan`.
+- Incoming references, the reference graph and `omm validate` ignored nested elements.
+- Top-level and nested elements wrote different `meta.yaml` formats. Nested elements had no git baseline.
+- Deleting a nested element left a stale entry in its parent's `children` list.
+- Markdown in the viewer was inserted without sanitising.
+- The viewer allowed requests from any website (wildcard CORS), could be framed by other sites, and accepted any `Host` header.
+- On platforms without recursive file watching (Linux before Node 20), live reload no longer crashes the viewer.
+- The Windows build did not copy `viewer.html` into `dist/`.
+- `.omm/config.yaml` was created with version `0.1.0` instead of the package version.
+
+### Added
+
+- Nested references: `@perspective/child` in a diagram links to a nested element.
+- New `ref-ancestor` validation warning when a child diagram references its own parent.
+- `omm view --host <addr>`.
+- `omm status` shows element and documentation counts per perspective.
+- `omm validate` prints a summary line.
+- New library exports: `listAllElements`, `parseElementPath`.
+- CI on every pull request: type check, tests and build on Linux and Windows, with Node 18 and 22.
+
+### Changed
+
+- **Fork identity:**
+  - The package is now `@al-kheder/oh-my-mermaid`. Until it is published to npm, install it with `npm install -g github:al-kheder/oh-my-mermaid`.
+  - `omm setup` for Claude Code uses this fork's plugin marketplace.
+  - `omm update` reinstalls from the fork.
+- **The viewer works offline.** `dagre`, `marked` and `DOMPurify` ship with the package (pinned versions) instead of loading from a CDN.
+- **Clean-up:** removed the unused `class-field` command module, and `PLAN.md` is marked as historical.
