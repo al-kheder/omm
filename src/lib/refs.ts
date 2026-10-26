@@ -1,10 +1,12 @@
-import { listClasses, readField } from './store.js';
+import { listAllElements, readField } from './store.js';
 import type { RefEntry } from '../types.js';
 
-const REF_PATTERN = /@([\w-]+)/g;
+// @perspective or @perspective/child/... — not preceded by a word char, so emails don't count
+const REF_PATTERN = /(?<![\w.])@([\w-]+(?:\/[\w-]+)*)/g;
 
 /**
- * Extract @class-name references from a mermaid diagram text.
+ * Extract @element references from a mermaid diagram text.
+ * `@name` refers to a perspective; `@name/child` to a nested element.
  */
 export function extractRefs(diagramText: string): string[] {
   const refs: string[] = [];
@@ -19,7 +21,7 @@ export function extractRefs(diagramText: string): string[] {
 }
 
 /**
- * Get all classes that the given class references (outgoing refs).
+ * Get all elements that the given element references (outgoing refs).
  */
 export function getOutgoingRefs(className: string, cwd?: string): RefEntry[] {
   const diagram = readField(className, 'diagram', cwd);
@@ -34,21 +36,20 @@ export function getOutgoingRefs(className: string, cwd?: string): RefEntry[] {
 }
 
 /**
- * Get all classes that reference the given class (incoming refs).
+ * Get all elements, at any depth, that reference the given element (incoming refs).
  */
 export function getIncomingRefs(className: string, cwd?: string): RefEntry[] {
-  const classes = listClasses(cwd);
   const incoming: RefEntry[] = [];
 
-  for (const cls of classes) {
-    if (cls === className) continue;
-    const diagram = readField(cls, 'diagram', cwd);
+  for (const element of listAllElements(cwd)) {
+    if (element === className) continue;
+    const diagram = readField(element, 'diagram', cwd);
     if (!diagram) continue;
 
     const refs = extractRefs(diagram);
     if (refs.includes(className)) {
       incoming.push({
-        source_class: cls,
+        source_class: element,
         target_class: className,
         node_id: `@${className}`,
       });
@@ -59,15 +60,13 @@ export function getIncomingRefs(className: string, cwd?: string): RefEntry[] {
 }
 
 /**
- * Build a full reference graph for all classes.
+ * Build a full reference graph for all elements in the tree.
  */
 export function buildRefGraph(cwd?: string): RefEntry[] {
-  const classes = listClasses(cwd);
   const allRefs: RefEntry[] = [];
 
-  for (const cls of classes) {
-    const refs = getOutgoingRefs(cls, cwd);
-    allRefs.push(...refs);
+  for (const element of listAllElements(cwd)) {
+    allRefs.push(...getOutgoingRefs(element, cwd));
   }
 
   return allRefs;

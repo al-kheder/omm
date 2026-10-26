@@ -48,6 +48,11 @@ function checkBracketBalance(line: string): boolean {
          counts['{'] === counts['}'];
 }
 
+function formatAvailable(elements: string[], max = 10): string {
+  const shown = elements.slice(0, max).join(', ');
+  return elements.length > max ? `${shown}, … (${elements.length - max} more, see 'omm tree')` : shown;
+}
+
 // --- Main validation function ---
 
 export interface ValidateContext {
@@ -130,7 +135,8 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     }
   }
 
-  // Rule: ref-exists and ref-self (only when context provided)
+  // Rule: ref-exists, ref-self and ref-ancestor (only when context provided).
+  // allClasses holds every element path, so @persp/child refs resolve too.
   if (context) {
     const refs = extractRefs(text);
     for (const ref of refs) {
@@ -138,13 +144,19 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
         issues.push({
           level: 'error',
           rule: 'ref-self',
-          message: `Diagram references its own class: @${ref}`,
+          message: `Diagram references its own element: @${ref}`,
+        });
+      } else if (context.className.startsWith(`${ref}/`)) {
+        issues.push({
+          level: 'warning',
+          rule: 'ref-ancestor',
+          message: `Diagram references its own ancestor @${ref}. A child element should not reference its parent.`,
         });
       } else if (!context.allClasses.includes(ref)) {
         issues.push({
           level: 'error',
           rule: 'ref-exists',
-          message: `@${ref} does not exist. Available: ${context.allClasses.join(', ')}`,
+          message: `@${ref} does not exist. Available: ${formatAvailable(context.allClasses)}`,
         });
       }
     }

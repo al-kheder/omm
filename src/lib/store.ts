@@ -66,11 +66,22 @@ const UNSAFE_SEGMENT_CHARS = /[\\:\0]/;
  */
 export function parseElementPath(elementPath: string): string[] {
   const segments = elementPath.split('/');
-  const unsafe = !elementPath || segments.some(s => !s || s.startsWith('.') || UNSAFE_SEGMENT_CHARS.test(s));
-  if (unsafe) {
+  if (!elementPath || !segments.every(isValidSegment)) {
     throw new Error(`invalid element path '${elementPath}'`);
   }
   return segments;
+}
+
+function isValidSegment(segment: string): boolean {
+  return !!segment && !segment.startsWith('.') && !UNSAFE_SEGMENT_CHARS.test(segment);
+}
+
+function listElementDirs(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir, { withFileTypes: true })
+    .filter(d => d.isDirectory() && isValidSegment(d.name))
+    .map(d => d.name)
+    .sort();
 }
 
 /** Resolve an element path to its directory, guaranteed to be inside .omm/ */
@@ -102,12 +113,7 @@ export function classExists(className: string, cwd?: string): boolean {
 }
 
 export function listClasses(cwd?: string): string[] {
-  const dir = getOmmDir(cwd);
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir, { withFileTypes: true })
-    .filter(d => d.isDirectory() && !d.name.startsWith('.'))
-    .map(d => d.name)
-    .sort();
+  return listElementDirs(getOmmDir(cwd));
 }
 
 // --- Perspective + Nested Element operations (direct nesting, no nodes/ dir) ---
@@ -135,11 +141,22 @@ export function listNodes(perspective: string, nodePath: string[] = [], cwd?: st
   const dir = nodePath.length === 0
     ? classDir(perspective, cwd)
     : nodeDir(perspective, nodePath, cwd);
-  if (!fs.existsSync(dir)) return [];
-  return fs.readdirSync(dir, { withFileTypes: true })
-    .filter(d => d.isDirectory() && !d.name.startsWith('.'))
-    .map(d => d.name)
-    .sort();
+  return listElementDirs(dir);
+}
+
+/** Every element path in the tree ("persp", "persp/child", ...), depth-first, perspectives sorted */
+export function listAllElements(cwd?: string): string[] {
+  const out: string[] = [];
+  const walk = (perspective: string, nodePath: string[]): void => {
+    out.push([perspective, ...nodePath].join('/'));
+    for (const child of listNodes(perspective, nodePath, cwd)) {
+      walk(perspective, [...nodePath, child]);
+    }
+  };
+  for (const perspective of listClasses(cwd)) {
+    walk(perspective, []);
+  }
+  return out;
 }
 
 /** Read a field from a nested element */
