@@ -24,6 +24,13 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **Secret check.** `omm validate` reports an error (`secret-value`) when a diagram contains something that looks like a secret:
+  - private keys;
+  - AWS, GitHub, Slack, Google, Stripe and `sk-` API keys;
+  - JSON Web Tokens;
+  - passwords in URLs;
+  - random-looking values assigned to `password`, `secret`, `api_key` and similar.
+  `omm write` prints the same warning for any field, but still saves it. References such as `${DB_PASSWORD}`, placeholders and ordinary prose are not reported, and the matched value is never printed. `/omm-scan` now says never to copy secrets into `.omm/`.
 - **Flow motion** for explaining how data or work moves. The new **flow** button in the viewer toolbar shows a small file icon travelling along the arrows that carry something:
   - every one-way arrow of a process flowchart;
   - every message of a sequence diagram, one after another in order;

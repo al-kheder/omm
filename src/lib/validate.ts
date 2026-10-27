@@ -5,6 +5,7 @@ import { parseErDiagram } from './er.js';
 import { parseSequenceDiagram } from './sequence.js';
 import { parseStateDiagram, stateDisplayId } from './state.js';
 import { parseFlowchart, type FlowShape } from './flowchart.js';
+import { findSecrets } from './secrets.js';
 import type { ValidationIssue, ValidationResult } from '../types.js';
 
 // --- Source-of-truth constants ---
@@ -297,6 +298,11 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     checkStateDiagram(text, issues);
   } else {
     checkFlowchart(text, type, issues);
+  }
+
+  // Rule: secret-value — keys, tokens and passwords never belong in .omm/
+  for (const s of findSecrets(text)) {
+    issues.push({ level: 'error', rule: 'secret-value', message: `Looks like a ${s.kind}. Remove it: describe where the secret is used, not its value.`, line: s.line });
   }
 
   // Rule: ref-exists, ref-self and ref-ancestor (only when context provided).

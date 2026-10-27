@@ -422,3 +422,4 @@ To present a flowchart, open it with `omm view`, click **color** (colors by mean
 - **Write each field as a separate `omm write` command.** Each `omm write` must be its own Bash tool call.
 - Do not rewrite elements that haven't changed.
 - Do not create circular references. A child element must never reference its parent.
+- **Never copy secrets into `.omm/`.** No passwords, tokens, keys, connection strings with credentials or values from `.env` files, in any field. Write where a secret comes from instead ("reads `DB_PASSWORD` from the environment"). `omm write` warns and `omm validate` reports an error (`secret-value`) when something looks like a secret; if that happens, rewrite the field without it.
