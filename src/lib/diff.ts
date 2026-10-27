@@ -4,6 +4,7 @@ import { parseErDiagram } from './er.js';
 import { parseSequenceDiagram } from './sequence.js';
 import { parseStateDiagram, stateDisplayId } from './state.js';
 import { parseFlowchart } from './flowchart.js';
+import { parseArchitectureDiagram } from './architecture.js';
 
 interface MermaidElement {
   nodes: Set<string>;
@@ -58,6 +59,20 @@ function parseState(text: string): MermaidElement {
   return { nodes, edges };
 }
 
+/**
+ * Architecture diagram as nodes (groups, services, junctions) and edges ("a --> b: title").
+ * Edge sides are layout hints and are not part of the identity.
+ */
+function parseArchitecture(text: string): MermaidElement {
+  const arch = parseArchitectureDiagram(text);
+  const nodes = new Set([...arch.groups.keys(), ...arch.services.keys(), ...arch.junctions.keys()]);
+  const edges = new Set(arch.edges.map(e => {
+    const edge = `${e.from} ${e.tail ? '<' : ''}--${e.head ? '>' : ''} ${e.to}`;
+    return e.title ? `${edge}: ${e.title}` : edge;
+  }));
+  return { nodes, edges };
+}
+
 // Headers of diagram types without their own parser; dropped so they are not read as a node
 const OTHER_HEADER = /^(classDiagram(-v2)?|gantt|pie|gitGraph|journey|mindmap|timeline|quadrantChart|requirementDiagram|C4\w*|block(-beta)?|sankey(-beta)?|xychart(-beta)?|packet(-beta)?|architecture(-beta)?|kanban)\b.*$/;
 
@@ -76,6 +91,7 @@ function parseFlow(text: string): MermaidElement {
 /** Parse any supported diagram into nodes and edges for diffing and size checks. */
 export function parseMermaid(text: string): MermaidElement {
   const type = detectDiagramType(text);
+  if (type === 'architecture') return parseArchitecture(text);
   if (type === 'er') return parseEr(text);
   if (type === 'sequence') return parseSequence(text);
   if (type === 'state') return parseState(text);

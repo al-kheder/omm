@@ -24,6 +24,20 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **Architecture diagrams (`architecture-beta`)** for deployment: where software runs and how the running parts connect.
+  - **Parsing:**
+    - groups (cloud accounts, networks, hosts, containers), nested with `in`;
+    - services with icons;
+    - junctions;
+    - connections with sides (`a:R --> L:b`), arrowheads, titles (`-[HTTPS]->`) and `{group}` ends;
+    - `align`, `title` and accessibility lines.
+  - **`omm validate`:** reports syntax errors with line numbers (`arch-syntax`), and warns about services without connections (`arch-orphan`) and connections without a label (`arch-edge-label`).
+  - **`omm diff`:** reports added and removed groups, services and connections.
+  - **Viewer:**
+    - groups are drawn as nested dashed boxes and services as boxes with an icon;
+    - connections show their labels;
+    - **color** marks data stores and the internet, and **flow** moves an icon along every one-way connection.
+  - A `%% @perspective/element` comment links the diagram to another element without drawing it.
 - **Secret check.** `omm validate` reports an error (`secret-value`) when a diagram contains something that looks like a secret:
   - private keys;
   - AWS, GitHub, Slack, Google, Stripe and `sk-` API keys;

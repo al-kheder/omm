@@ -691,6 +691,7 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   if (diagramType === 'er') return renderErGroup(data.diagram, scopedPath);
   if (diagramType === 'sequence') return renderSeqGroup(data.diagram, scopedPath);
   if (diagramType === 'state') return renderStateGroup(data.diagram, scopedPath);
+  if (diagramType === 'architecture') return renderArchGroup(data.diagram, scopedPath);
 
   const parsed = parseFlowchart(data.diagram);
   const {rankdir, nodes, subgraphs} = parsed;
@@ -959,6 +960,148 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   }
 
   return { svgContent: svg, W, H, labelOverlay };
+}
+
+// ── architecture (deployment) renderer ────────────────────
+// architecture-beta: groups (where software runs) are nested dashed boxes, services (what
+// runs there) are boxes with an icon, edges are the runtime connections. dagre lays it out;
+// the T/B/L/R sides in the text only decide the main direction and which side an edge
+// leaves from when that side faces the other end.
+
+// 14px icon glyphs for Mermaid's built-in icons; other icons (iconify names) get a plain tile
+function archIcon(name, cx, cy, color) {
+  const a = `fill="none" stroke="${color}" stroke-width="1.3" stroke-linejoin="round"`;
+  const x = r1(cx - 7), y = r1(cy - 7);
+  switch ((name || '').toLowerCase()) {
+    case 'server': return `<rect ${a} x="${x}" y="${r1(cy - 6)}" width="14" height="5" rx="1"/><rect ${a} x="${x}" y="${r1(cy + 1)}" width="14" height="5" rx="1"/><circle cx="${r1(cx + 4)}" cy="${r1(cy - 3.5)}" r="0.9" fill="${color}"/><circle cx="${r1(cx + 4)}" cy="${r1(cy + 3.5)}" r="0.9" fill="${color}"/>`;
+    case 'database': return `<ellipse ${a} cx="${r1(cx)}" cy="${r1(cy - 4.5)}" rx="6" ry="2.5"/><path ${a} d="M${r1(cx - 6)},${r1(cy - 4.5)} V${r1(cy + 4.5)} A6,2.5 0 0 0 ${r1(cx + 6)},${r1(cy + 4.5)} V${r1(cy - 4.5)}"/>`;
+    case 'disk': return `<circle ${a} cx="${r1(cx)}" cy="${r1(cy)}" r="6.5"/><circle ${a} cx="${r1(cx)}" cy="${r1(cy)}" r="2"/>`;
+    case 'cloud': return `<path ${a} d="M${r1(cx - 4)},${r1(cy + 4)} H${r1(cx + 4.5)} A3,3 0 0 0 ${r1(cx + 4)},${r1(cy - 2)} A4.5,4.5 0 0 0 ${r1(cx - 4.5)},${r1(cy - 1)} A2.6,2.6 0 0 0 ${r1(cx - 4)},${r1(cy + 4)} Z"/>`;
+    case 'internet': return `<circle ${a} cx="${r1(cx)}" cy="${r1(cy)}" r="6.5"/><ellipse ${a} cx="${r1(cx)}" cy="${r1(cy)}" rx="2.8" ry="6.5"/><path ${a} d="M${r1(cx - 6.5)},${r1(cy)} H${r1(cx + 6.5)}"/>`;
+    default: return `<rect ${a} x="${x}" y="${y}" width="14" height="14" rx="3"/><path ${a} d="M${r1(cx - 3)},${r1(cy)} H${r1(cx + 3)} M${r1(cx)},${r1(cy - 3)} V${r1(cy + 3)}"/>`;
+  }
+}
+
+function renderArchGroup(text, scopedPath) {
+  const arch = OmmViewer.parseArchitectureDiagram(text);
+  const services = [...arch.services.values()], junctions = [...arch.junctions.values()];
+  if (!services.length) return null;
+  const th = theme(), ec = th.edgeColor0;
+  const PAD = 16, ICON_W = 22;
+  const titleFont = '12px Inter,system-ui', groupFont = '600 10px Inter,system-ui';
+
+  // Main direction: left to right unless most connections run top to bottom
+  const vertical = arch.edges.filter(e => 'TB'.includes(e.fromSide) && 'TB'.includes(e.toSide)).length;
+  const rankdir = vertical > arch.edges.length / 2 ? 'TB' : 'LR';
+
+  const dims = {};
+  for (const s of services) {
+    const detail = cleanView ? null : s.detail;
+    const w = Math.max(110, tw(s.title, titleFont) + ICON_W + 26, detail ? tw(detail, FLOW_PATH_FONT) + ICON_W + 26 : 0);
+    dims[s.id] = { width: Math.min(260, w), height: detail ? 50 : 38, detail };
+  }
+  for (const j of junctions) dims[j.id] = { width: 10, height: 10 };
+
+  const g = new dagre.graphlib.Graph({ multigraph: true, compound: arch.groups.size > 0 });
+  g.setGraph({ rankdir, nodesep: 28, ranksep: 56, marginx: PAD, marginy: PAD + 6 });
+  g.setDefaultEdgeLabel(() => ({}));
+  for (const [id, d] of Object.entries(dims)) g.setNode(id, { width: d.width, height: d.height });
+  for (const grp of arch.groups.values()) g.setNode('__grp_' + grp.id, { paddingTop: 22 });
+  for (const grp of arch.groups.values()) if (grp.parent) g.setParent('__grp_' + grp.id, '__grp_' + grp.parent);
+  for (const n of [...services, ...junctions]) if (n.parent) g.setParent(n.id, '__grp_' + n.parent);
+  // Edges point along the main direction so the sides in the text shape the layout
+  const forward = e => rankdir === 'LR' ? !(e.fromSide === 'L' || e.toSide === 'R') : !(e.fromSide === 'T' || e.toSide === 'B');
+  arch.edges.forEach((e, i) => {
+    const label = e.title ? { width: tw(e.title, '10px Inter') + 12, height: 16, labelpos: 'c' } : {};
+    if (forward(e)) g.setEdge(e.from, e.to, label, 'e' + i); else g.setEdge(e.to, e.from, label, 'e' + i);
+  });
+  try { dagre.layout(g); } catch { return null; }
+  const gi = g.graph();
+  const W = r1(gi.width + PAD), H = r1(gi.height + PAD);
+  const uid = 'ar' + Math.random().toString(36).slice(2, 7);
+
+  let svg = `<defs>${arrowMarker(uid + 'a', ec)}</defs>`;
+  // groups, outer first
+  const groups = [...arch.groups.values()].sort((a, b) => OmmViewer.archGroupDepth(arch, a.id) - OmmViewer.archGroupDepth(arch, b.id));
+  for (const grp of groups) {
+    const box = g.node('__grp_' + grp.id);
+    if (!box?.width) continue;
+    const depth = OmmViewer.archGroupDepth(arch, grp.id);
+    const gx = r1(box.x - box.width / 2), gy = r1(box.y - box.height / 2);
+    const lw = tw(grp.title, groupFont) + (grp.icon ? 30 : 14);
+    svg += `<g class="arch-group" data-group="${esc(grp.id)}">
+      <rect x="${gx}" y="${gy}" width="${r1(box.width)}" height="${r1(box.height)}" rx="8" fill="${depth % 2 ? th.groupFill : th.subFill}" stroke="${th.subStroke}" stroke-width="1.5" stroke-dasharray="6,4"/>
+      <rect x="${r1(gx + 10)}" y="${r1(gy - 9)}" width="${r1(lw)}" height="18" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1"/>
+      ${grp.icon ? `<g transform="translate(${r1(gx + 22)},${r1(gy)}) scale(0.8)">${archIcon(grp.icon, 0, 0, th.subLabelFill)}</g>` : ''}
+      <text x="${r1(gx + (grp.icon ? 33 : 17))}" y="${r1(gy)}" dominant-baseline="central" font-family="Inter,system-ui" font-size="10" font-weight="600" fill="${th.subLabelFill}">${esc(grp.title)}</text>
+    </g>`;
+  }
+
+  // edges: from the side named in the text when it faces the other end
+  const sidePoint = (c, w, h, side) => side === 'L' ? { x: c.x - w / 2, y: c.y } : side === 'R' ? { x: c.x + w / 2, y: c.y } : side === 'T' ? { x: c.x, y: c.y - h / 2 } : { x: c.x, y: c.y + h / 2 };
+  const endBox = (id, inGroup) => {
+    if (inGroup) { const b = g.node('__grp_' + arch.services.get(id).parent); if (b?.width) return b; }
+    return g.node(id);
+  };
+  let edgeIcons = '', edgeLabels = '';
+  arch.edges.forEach((e, i) => {
+    const ed = g.edge(forward(e) ? e.from : e.to, forward(e) ? e.to : e.from, 'e' + i);
+    if (!ed?.points?.length) return;
+    let pts = ed.points.slice();
+    if (!forward(e)) pts.reverse(); // now runs from e.from to e.to
+    const a = endBox(e.from, e.fromGroup), b = endBox(e.to, e.toGroup);
+    const faces = (box, side, toward) => {
+      const p = sidePoint(box, box.width, box.height, side);
+      return (p.x - box.x) * (toward.x - box.x) + (p.y - box.y) * (toward.y - box.y) > 0 ? p : null;
+    };
+    pts[0] = faces(a, e.fromSide, pts[1] ?? b) ?? (e.fromGroup ? boxEdge(a, pts[1] ?? b, a.width, a.height) : pts[0]);
+    pts[pts.length - 1] = faces(b, e.toSide, pts[pts.length - 2] ?? a) ?? (e.toGroup ? boxEdge(b, pts[pts.length - 2] ?? a, b.width, b.height) : pts[pts.length - 1]);
+    // draw in the direction of a single arrowhead, so the marker and moving icon agree
+    const reverse = e.tail && !e.head;
+    if (reverse) pts = pts.slice().reverse();
+    const one = e.head !== e.tail;
+    const head = one || e.head ? `marker-end="url(#${uid}a)"` : '';
+    const tail = e.head && e.tail ? `marker-start="url(#${uid}a)"` : '';
+    const speed = iconBudget > 0 ? OmmViewer.archEdgeMotion(e) : null;
+    const pathId = speed ? ` id="${uid}p${i}"` : '';
+    const src = reverse ? e.to : e.from, dst = reverse ? e.from : e.to;
+    svg += `<path class="edge-path"${pathId} d="${smoothPath(pts)}" stroke="${ec}" stroke-width="2" fill="none" ${head} ${tail} data-from="${esc(src)}" data-to="${esc(dst)}"/>`;
+    if (speed) edgeIcons += flowEdgeIcon(`${uid}p${i}`, pts, speed, i);
+    if (e.title) {
+      const mid = ed.x !== undefined ? { x: ed.x, y: ed.y } : pts[Math.floor(pts.length / 2)];
+      const lw = tw(e.title, '10px Inter') + 12, mx = r1(mid.x), my = r1(mid.y);
+      edgeLabels += `<g class="edge-label"><rect x="${r1(mx - lw / 2)}" y="${my - 8}" width="${lw}" height="16" rx="3" fill="${th.edgeLabelBg}"/>
+        <text x="${mx}" y="${my + 3.5}" text-anchor="middle" font-family="Inter,system-ui" font-size="10" fill="${th.edgeLabelText}">${esc(e.title)}</text></g>`;
+    }
+  });
+  svg += edgeIcons + edgeLabels;
+
+  // services and junctions
+  for (const s of services) {
+    const p = g.node(s.id), d = dims[s.id];
+    if (!p) continue;
+    const st = nodeStyle(s, OmmViewer.archServiceRole(s.icon));
+    const x = r1(p.x - d.width / 2), y = r1(p.y - d.height / 2);
+    // text centred in the space right of the icon (the zoom code enlarges .node-lbl around its centre)
+    const ix = p.x - d.width / 2 + 16, tx = r1(p.x + ICON_W / 2);
+    const nodeScopedId = esc(scopedPath + '/' + s.id);
+    const icon = s.iconText
+      ? `<text x="${r1(ix)}" y="${r1(p.y)}" text-anchor="middle" dominant-baseline="central" font-size="12" fill="${st.text}">${esc(s.iconText)}</text>`
+      : archIcon(s.icon, ix, p.y, st.text);
+    const titleY = d.detail ? p.y - 7 : p.y;
+    svg += `<g class="reg-node arch-service" data-cls="${nodeScopedId}" onclick="event.stopPropagation();window.__openSb('${nodeScopedId}')">
+      <rect class="nshape" x="${x}" y="${y}" width="${r1(d.width)}" height="${r1(d.height)}" rx="6" fill="${st.bg}" stroke="${st.border}" stroke-width="2"${st.dash ? ` stroke-dasharray="${st.dash}"` : ''}/>
+      ${icon}
+      <text class="node-lbl" x="${tx}" y="${r1(titleY)}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" fill="${st.text}">${esc(s.title)}</text>
+      ${d.detail ? `<text class="node-path" x="${tx}" y="${r1(p.y + 9)}" text-anchor="middle" dominant-baseline="central" font-family="'SF Mono','Fira Code',monospace" font-size="9" fill="${st.text}" opacity="0.55">${esc(d.detail)}</text>` : ''}
+    </g>`;
+  }
+  for (const j of junctions) {
+    const p = g.node(j.id);
+    if (p) svg += `<circle cx="${r1(p.x)}" cy="${r1(p.y)}" r="4" fill="${ec}"/>`;
+  }
+
+  return { svgContent: svg, W, H, labelOverlay: '' };
 }
 
 // ── ER diagram renderer ───────────────────────────────────

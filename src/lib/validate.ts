@@ -6,6 +6,7 @@ import { parseSequenceDiagram } from './sequence.js';
 import { parseStateDiagram, stateDisplayId } from './state.js';
 import { parseFlowchart, type FlowShape } from './flowchart.js';
 import { findSecrets } from './secrets.js';
+import { parseArchitectureDiagram } from './architecture.js';
 import type { ValidationIssue, ValidationResult } from '../types.js';
 
 // --- Source-of-truth constants ---
@@ -279,6 +280,35 @@ function checkStateDiagram(text: string, issues: ValidationIssue[]): void {
   }
 }
 
+function checkArchitectureDiagram(text: string, issues: ValidationIssue[]): void {
+  const arch = parseArchitectureDiagram(text);
+
+  // Rule: arch-syntax — anything the parser could not read
+  for (const error of arch.errors) {
+    issues.push({ level: 'error', rule: 'arch-syntax', message: error.message, line: error.line });
+  }
+
+  // Rule: arch-orphan — a service with no connection
+  const connected = new Set(arch.edges.flatMap(e => [e.from, e.to]));
+  if (arch.services.size > 1) {
+    for (const s of arch.services.values()) {
+      if (!connected.has(s.id)) issues.push({ level: 'warning', rule: 'arch-orphan', message: `Service ${s.id} has no connections`, line: s.line });
+    }
+  }
+
+  // Rule: arch-edge-label — say what travels over a connection (protocol or purpose)
+  for (const e of arch.edges) {
+    if (!e.title && !arch.junctions.has(e.from) && !arch.junctions.has(e.to)) {
+      issues.push({
+        level: 'warning',
+        rule: 'arch-edge-label',
+        message: `Connection without label (e.g. -[HTTPS]->): ${e.from} -- ${e.to}`,
+        line: e.line,
+      });
+    }
+  }
+}
+
 // --- Main validation function ---
 
 export interface ValidateContext {
@@ -296,6 +326,8 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     checkSequenceDiagram(text, issues);
   } else if (type === 'state') {
     checkStateDiagram(text, issues);
+  } else if (type === 'architecture') {
+    checkArchitectureDiagram(text, issues);
   } else {
     checkFlowchart(text, type, issues);
   }
@@ -335,7 +367,7 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
   // Rule: node-count (uses parseMermaid for counting only; entities for ER, participants for sequence, states for state diagrams)
   const parsed = parseMermaid(text);
   const nodeCount = parsed.nodes.size;
-  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : type === 'state' ? 'states' : 'nodes';
+  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : type === 'state' ? 'states' : type === 'architecture' ? 'groups, services and junctions' : 'nodes';
   if (nodeCount > 0 && nodeCount < 3 && (type === 'flowchart' || type === 'unknown')) {
     issues.push({
       level: 'warning',
