@@ -92,6 +92,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 }
 .hbtn { background: none; border: 1px solid var(--border-hi); color: var(--text-mid); height: 26px; min-width: 26px; padding: 0 8px; border-radius: 5px; cursor: pointer; font-size: 13px; font-family: var(--font); transition: border-color .12s, color .12s; }
 .hbtn:hover { border-color: #3a3a3a; color: var(--text); }
+.hbtn.on { border-color: var(--text-mid); color: var(--text); }
 #zoom-label { font-size: 11px; color: var(--text-dim); width: 38px; text-align: center; font-family: var(--mono); }
 
 #canvas-wrap {
@@ -298,6 +299,9 @@ body.light .reg-node:hover .nshape { stroke: #000 !important; }
     <span id="zoom-label">70%</span>
     <button class="hbtn" onclick="zoomIn()">+</button>
     <button class="hbtn" onclick="resetView()" style="font-size:11px">fit</button>
+    <button class="hbtn" id="clean-btn" onclick="toggleClean()" title="Clean view: hide file paths under element names" style="font-size:11px">clean</button>
+    <button class="hbtn" onclick="exportDiagram('svg')" title="Download the selected perspective (or everything) as SVG" style="font-size:11px">svg</button>
+    <button class="hbtn" onclick="exportDiagram('png')" title="Download the selected perspective (or everything) as PNG" style="font-size:11px">png</button>
     <button class="hbtn" id="theme-btn" onclick="toggleTheme()" style="font-size:13px">○</button>
   </div>
   <div id="canvas"></div>
@@ -335,6 +339,19 @@ window.toggleTheme = function() {
   isDark = !isDark;
   safeStorageSet('omm-theme', isDark ? 'dark' : 'light');
   applyTheme();
+  rebuildCanvas();
+};
+
+// Clean view (for showing diagrams to people who do not need the code): hides the
+// file-path line omm-scan writes under element names
+let cleanView = safeStorageGet('omm-clean') === '1';
+function applyClean() {
+  document.getElementById('clean-btn')?.classList.toggle('on', cleanView);
+}
+window.toggleClean = function() {
+  cleanView = !cleanView;
+  safeStorageSet('omm-clean', cleanView ? '1' : '0');
+  applyClean();
   rebuildCanvas();
 };
 function theme() {
@@ -382,7 +399,7 @@ function wrapWords(text, font, maxW) {
 // Label lines (wrapped to maxW) and the detail line omm-scan writes after "\n" (usually a path)
 function flowLabel(n, maxW) {
   const lines = n.label.replace(/^@/, '').split('\n').flatMap(l => wrapWords(l.trim(), FLOW_FONT, maxW));
-  return { lines, path: n.detail || null };
+  return { lines, path: cleanView ? null : (n.detail || null) };
 }
 
 // Box size for a node: text plus the room its shape needs
@@ -533,8 +550,18 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   if (diagramType === 'state') return renderStateGroup(data.diagram, scopedPath);
 
   const parsed = parseFlowchart(data.diagram);
-  const {rankdir, nodes, edges} = parsed;
+  const {rankdir, nodes, subgraphs} = parsed;
   if (!nodes.length) return null;
+
+  // Lanes (subgraphs) that contain at least one node, directly or through a nested lane
+  const laneOf = id => nodes.find(n => n.id === id)?.subgraph;
+  const inLane = (sgId, laneId) => { for (let s = sgId; s; s = subgraphs.get(s)?.parent) if (s === laneId) return true; return false; };
+  const lanes = [...subgraphs.values()].filter(sg => nodes.some(n => inLane(n.subgraph, sg.id)));
+  // An edge to a lane is drawn to the lane's first node (dagre cannot route edges to a lane box)
+  const laneTarget = id => subgraphs.has(id) && !nodes.some(n => n.id === id) ? nodes.find(n => inLane(n.subgraph, id))?.id : id;
+  const edges = parsed.edges
+    .map(e => ({ ...e, from: laneTarget(e.from), to: laneTarget(e.to), toLane: e.from !== laneTarget(e.from) || e.to !== laneTarget(e.to) }))
+    .filter(e => e.from && e.to && !(e.toLane && e.from === e.to));
 
   // padding around the group content
   const PAD_L = 16, PAD_R = 20, PAD_T = 20, PAD_B = 16;
@@ -570,7 +597,7 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   const _gridExcluded = new Set();  // node IDs replaced by virtual nodes
   const _gridPositions = {};  // childId -> { x, y } (filled after dagre)
 
-  for (const n of nodes) {
+  for (const n of (lanes.length ? [] : nodes)) { // no grids inside lanes
     const outEdges = edges.filter(e => e.from === n.id);
     const leafTargets = outEdges
       .map(e => e.to)
@@ -594,7 +621,7 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   // Edge labels get space in the layout so they do not sit on top of nodes
   const edgeLabelSize = e => e.label ? { width: tw(e.label, '10px Inter') + 10, height: 14, labelpos: 'c' } : {};
   function buildGraph(rd) {
-    const g = new dagre.graphlib.Graph({ multigraph: true });
+    const g = new dagre.graphlib.Graph({ multigraph: true, compound: lanes.length > 0 });
     const nsep = dense ? 20 : 32;
     const rsep = dense ? 28 : 44;
     g.setGraph({rankdir: rd, nodesep:nsep, ranksep:rsep, marginx:PAD_L, marginy:PAD_T});
@@ -602,6 +629,9 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
     for (const n of nodes) {
       if (!_gridExcluded.has(n.id)) g.setNode(n.id, { width: nodeDims[n.id].width, height: nodeDims[n.id].height });
     }
+    for (const sg of lanes) g.setNode('__lane_' + sg.id, {});
+    for (const sg of lanes) if (sg.parent && lanes.includes(subgraphs.get(sg.parent))) g.setParent('__lane_' + sg.id, '__lane_' + sg.parent);
+    for (const n of nodes) if (n.subgraph && g.hasNode('__lane_' + n.subgraph)) g.setParent(n.id, '__lane_' + n.subgraph);
     for (const vid of Object.keys(_gridGroups)) g.setNode(vid, nodeDims[vid]);
     const _addedVirtEdges = new Set();
     edges.forEach((e, i) => {
@@ -654,6 +684,20 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   const uid = `${cls.replace(/[^a-z0-9]/gi,'')}_l${level}_`;
   const th = theme();
   let svg = '';
+
+  // lanes (subgraphs): outer lanes first so nested ones draw on top
+  const laneDepth = sg => { let d = 0; for (let s = sg.parent; s; s = subgraphs.get(s)?.parent) d++; return d; };
+  for (const sg of [...lanes].sort((a, b) => laneDepth(a) - laneDepth(b))) {
+    const box = g.node('__lane_' + sg.id);
+    if (!box?.width) continue;
+    const lx = r1(box.x - box.width / 2), ly = r1(box.y - box.height / 2);
+    const lw = tw(sg.label, '600 10px Inter,system-ui') + 14;
+    svg += `<g class="flow-lane" data-lane="${esc(sg.id)}">
+      <rect x="${lx}" y="${ly}" width="${r1(box.width)}" height="${r1(box.height)}" rx="8" fill="${laneDepth(sg) % 2 ? th.groupFill : th.subFill}" stroke="${th.subStroke}" stroke-width="1.5" stroke-dasharray="6,4"/>
+      <rect x="${r1(lx + 10)}" y="${r1(ly - 8)}" width="${r1(lw)}" height="16" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1"/>
+      <text x="${r1(lx + 17)}" y="${r1(ly)}" dominant-baseline="central" font-family="Inter,system-ui" font-size="10" font-weight="600" fill="${th.subLabelFill}">${esc(sg.label)}</text>
+    </g>`;
+  }
 
   // edges
   const ec = th.edgeColor0;
@@ -1761,6 +1805,73 @@ function postRender() {
   }
 }
 
+// ── export ────────────────────────────────────────────────
+// Renders the selected perspective (or the whole canvas) again at 1:1, outside the
+// zoom state, as a standalone SVG. Interactive attributes and the zoomed-out overview
+// labels are removed, since the page CSS that hides them is not part of the file.
+function exportSvg() {
+  const top = (selectedCls || '').split('/')[0];
+  const cls = classes.includes(top) ? top : null;
+  const fg = isDark ? '#ffffff' : '#1a1a1a';
+  const PAD = 24, TITLE_H = 34;
+  let W, H, body;
+  _expandedGlobal = new Set();
+  if (cls) {
+    const g = renderGroup(cls, classesData, classes, 0);
+    if (!g) return null;
+    W = r1(g.W + PAD * 2); H = r1(g.H + PAD * 2 + TITLE_H);
+    body = `<text x="${PAD}" y="${PAD + 14}" font-family="Inter,system-ui,sans-serif" font-size="16" font-weight="600" fill="${fg}">${esc(fmtLabel(cls))}</text>
+      <g transform="translate(${PAD},${PAD + TITLE_H})">${g.svgContent}</g>`;
+  } else {
+    const r = buildCanvas(classes, classesData, refsData);
+    if (!r) return null;
+    W = r.W; H = r.H;
+    body = r.html.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
+  }
+  body = body
+    .replace(/<text class="grp-label-center"[\s\S]*?<\/text>/g, '')
+    .replace(/<g class="grp-sub-labels">[\s\S]*?<\/g>/g, '')
+    .replace(/\s(onclick|data-[\w-]+)="[^"]*"/g, '');
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+<rect width="100%" height="100%" fill="${isDark ? '#000000' : '#ffffff'}"/>
+${body}
+</svg>`;
+  return { svg, W, H, name: cls || 'diagrams' };
+}
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+window.exportDiagram = function(format) {
+  const out = exportSvg();
+  if (!out) return;
+  if (format === 'svg') {
+    download(new Blob([out.svg], { type: 'image/svg+xml' }), `${out.name}.svg`);
+    return;
+  }
+  // PNG at 2× for slides; drawn from the SVG, so no external content is involved
+  const img = new Image();
+  img.onload = () => {
+    const scale = 2;
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(out.W * scale); c.height = Math.ceil(out.H * scale);
+    const ctx = c.getContext('2d');
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0);
+    c.toBlob(b => b && download(b, `${out.name}.png`), 'image/png');
+  };
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(out.svg);
+};
+window.__exportSvg = exportSvg; // used by tests and the console
+
 // ── rebuild canvas (depth change) ─────────────────────────
 function rebuildCanvas() {
   const result = buildCanvas(classes, classesData, refsData);
@@ -1958,6 +2069,7 @@ async function loadSubNodeData(perspective, subPath, shortName) {
 // ── init ──────────────────────────────────────────────────
 async function init() {
   applyTheme();
+  applyClean();
   classes = await api('/api/classes');
   if (!classes.length) {
     canvasEl.innerHTML=`<div class="empty-state" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)"><p>No perspectives found.<br>Run <code>/omm-scan</code> in Claude Code.</p></div>`;
