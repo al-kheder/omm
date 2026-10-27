@@ -61,6 +61,7 @@ From the catalog below, choose which perspectives are meaningful for this codeba
 | `orchestration` | Event-driven/queue systems | Publisher, subscriber, broker topology |
 | `storage` | 2+ storage systems | Storage topology (DB, cache, queue, object store) |
 | `data-model` | Database schema, ORM models, persisted file formats | What data exists and how entities relate. Uses an **ER diagram**; see "ER Diagram Rules" |
+| `deployment` | `omm evidence deployment` finds deployment files (Docker, Compose, Kubernetes, Helm, Terraform, serverless, hosting platforms, deploy jobs) or a published package | Where each part runs and how the running parts connect. Uses an **architecture diagram**; see "Deployment Diagram Rules" |
 | `business-processes` | User-facing or business workflows in the code (checkout, sign-up, approval, refund, onboarding) | What happens step by step, who does each step and where the process branches. Uses a **process flowchart**; see "Process Flowchart Rules" |
 
 Don't force perspectives that don't exist in the code.
@@ -355,6 +356,79 @@ MERMAID
 
 - Keep 3–15 states per diagram. Move the details of a busy state into a composite state or its own child element.
 - Run `omm validate` afterwards. It reports syntax errors with line numbers (unclosed `{`, invalid arrows), states without transitions and transitions without a trigger.
+
+## Deployment Diagram Rules
+
+The `deployment` perspective shows the **runtime**: where each part of the software runs and how the running parts talk to each other. It is not another code-structure diagram. Every element must come from a file in the repository.
+
+**1. Collect the evidence first**
+
+```bash
+omm evidence deployment          # readable summary
+omm evidence deployment --json   # all facts, for detail
+```
+
+- If it says **"No deployment evidence found"**, do not create a `deployment` perspective. Say so in the summary (Step 4).
+- Otherwise open the listed files where you need more detail.
+  - Never open `.env` files.
+  - Never copy values from environment variables, Secrets or config files: no passwords, tokens, keys or connection strings.
+  - Write where a value comes from instead ("reads `DATABASE_URL` from the environment").
+
+**2. Write an `architecture-beta` diagram**
+
+```mermaid
+architecture-beta
+  %% @overall-architecture/server
+  service browser(internet)[User browser]
+  group cloud(cloud)[AWS account]
+  group private(cloud)[Private subnet] in cloud
+  group cluster(server)[ECS cluster] in private
+  service api(server)["API service\nserver/"] in cluster
+  service db(database)[PostgreSQL 16] in private
+  service mail(internet)[Mail provider]
+  browser:R -[HTTPS 443]-> L:api
+  api:R -[SQL 5432]-> L:db
+  api{group}:B -[SMTP]-> T:mail
+```
+
+| Concept | Write it as | Evidence |
+|---|---|---|
+| Where software runs: cloud account, network zone, cluster, host, container | `group id(icon)[Title] in parent`, nested from outside in | Terraform resources, Kubernetes namespaces, Compose networks, platform files |
+| What runs there: container, process, function, static site, database, queue, bucket | `service id(icon)[Title] in group` | Dockerfile/Compose services, Kubernetes workloads, serverless functions, Procfile, Helm charts |
+| Clients and third parties | `service id(internet)[…]` outside every group | Ingress hosts, proxy `server_name`, outbound integrations in code |
+| Runtime connection | `a:R -[label]-> L:b`, with the arrow pointing from the side that starts the connection | Ingress routes, `proxy_pass`, `depends_on`, Service selectors, client code |
+
+**Icons**
+- `server`: an app, container or process.
+- `database`: a database.
+- `disk`: a volume or bucket.
+- `cloud`: a cloud account or managed service.
+- `internet`: browsers, public clients and third parties.
+- Other icon names are allowed but are drawn as a plain tile.
+
+**Rules**
+- **IDs:**
+  - Service IDs are kebab-case or camelCase and become child elements, like nodes in other perspectives. Write a `description` for each one: what it is and which files define it.
+  - Groups are not elements.
+  - Declare every group and service before an edge uses it.
+- **Edges:**
+  - Edges connect services (or junctions), never groups. Use `service{group}` to start or end at a group's border.
+  - Label every connection with the protocol and port when a file states them (`-[HTTPS 443]->`, `-[SQL 5432]->`, `-[AMQP]->`). Otherwise label it with its purpose (`-[enqueue order]->`). Never invent a protocol, port, host name or region.
+  - Use one-way arrows (`-->`) for requests and messages. The viewer's **flow** button moves a file icon along them.
+- **Unverified connections:** when no file states a connection but the code strongly suggests it, end the label with `(unverified)`, as in `-[calls (unverified)]->`, and list it in `note`. Leave out what you can't support at all.
+- **Environments:**
+  - Draw what one environment really looks like. If files describe several environments with different setups (for example Compose for development and Kubernetes for production), put each in its own top-level group, or make each environment a service with its own child diagram.
+  - Never invent an environment. In `note`, list the environments that have no evidence ("staging: no files").
+- **Fields:**
+  - `context`: the evidence used, one bullet per file (`docker-compose.yml: services api, db`).
+  - `note`: unverified connections, ambiguous mappings, missing environments, and anything `omm evidence` warned about.
+- **Links to other perspectives:**
+  - Add a `%% @perspective/element` comment line for a deployed service only when its build source (a Compose `build:` context, the Dockerfile's folder or a function handler path) matches exactly one element's documented path.
+  - Similar names are not enough; list such ambiguous cases in `note`.
+  - Use the comment form, not a node label `@…`, so the deployment view doesn't embed that element's diagram.
+- **Size:** keep 5–15 services. For large clusters, make a service per namespace or subsystem and give it its own child diagram.
+- **A published package or CLI** (only `package.json` commands and a publish job) is still deployment: show where it is published, where it is installed and what it starts on the user's machine.
+- Run `omm validate deployment` afterwards. It reports syntax errors with line numbers, services without connections and connections without a label.
 
 ## Process Flowchart Rules
 
