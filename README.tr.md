@@ -53,7 +53,7 @@ Claude Code'da yetenek `/oh-my-mermaid:omm-scan` olarak görünür. Tarama, belg
 omm view
 ```
 
-Ardından http://localhost:3000 adresini açın. Başka bir port için `--port <n>` kullanın. Görüntüleyici yalnızca kendi bilgisayarınızdan gelen bağlantıları kabul eder ve `.omm/` değiştikçe canlı olarak güncellenir.
+Ardından http://localhost:3000 adresini açın. Başka bir port için `--port <n>` kullanın. Görüntüleyici yalnızca kendi bilgisayarınızdan gelen bağlantıları kabul eder ve `.omm/` değiştikçe canlı olarak güncellenir. Araç çubuğunda **clean** dosya yollarını gizler, **svg** / **png** ise seçili diyagramı indirir; örneğin bir müşteri sunumuna eklemek için.
 
 ## Örnek
 
@@ -91,7 +91,7 @@ Görüntüleyici, bu iç içe yapıyı dosya sistemine bakarak otomatik algılar
 
 Her element en fazla 7 alan taşıyabilir: `description`, `diagram`, `context`, `constraint`, `concern`, `todo`, `note`.
 
-Diyagramlar akış şemaları (`graph` / `flowchart`), veritabanı şemaları gibi veri modelleri için ER diyagramları (`erDiagram`) veya bir istek ya da protokoldeki çağrı sırası için sıra diyagramlarıdır (`sequenceDiagram`). Üçü de `omm validate` ile doğrulanır ve görüntüleyicide çizilir.
+Diyagramlar akış şemaları (`graph` / `flowchart`), veritabanı şemaları gibi veri modelleri için ER diyagramları (`erDiagram`) bir istek ya da protokoldeki çağrı sırası için sıra diyagramları (`sequenceDiagram`) veya yaşam döngüleri ve durum makineleri için durum diyagramlarıdır (`stateDiagram-v2`). Dördü de `omm validate` ile doğrulanır ve görüntüleyicide çizilir. Akış şemaları teknik olmayan okuyucular için süreç diyagramı olarak da kullanılabilir: başlangıç/bitiş, adımlar, evet/hayır kararları, girdi/çıktı, belgeler, alt süreçler ve her rol için bir şerit (`subgraph`).
 
 ## CLI
 

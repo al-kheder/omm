@@ -53,7 +53,7 @@ npm install -g github:al-kheder/omm && omm setup
 omm view
 ```
 
-然后打开 http://localhost:3000。使用 `--port <n>` 指定其他端口。查看器只接受来自本机的连接，并在 `.omm/` 变化时实时更新。
+然后打开 http://localhost:3000。使用 `--port <n>` 指定其他端口。查看器只接受来自本机的连接，并在 `.omm/` 变化时实时更新。工具栏中的 **clean** 可隐藏文件路径，**svg** / **png** 可下载所选图表，例如放进给客户的幻灯片中。
 
 ## 示例
 
@@ -91,7 +91,7 @@ AI 分析代码库并生成 **视角（perspective）** — 观察架构的不�
 
 每个元素最多包含 7 个字段：`description`、`diagram`、`context`、`constraint`、`concern`、`todo`、`note`。
 
-图表可以是流程图（`graph` / `flowchart`）、用于数据库结构等数据模型的 ER 图（`erDiagram`），或用于表示请求或协议中调用顺序的时序图（`sequenceDiagram`）。三者都由 `omm validate` 校验，并在查看器中渲染。
+图表可以是流程图（`graph` / `flowchart`）、用于数据库结构等数据模型的 ER 图（`erDiagram`），用于表示请求或协议中调用顺序的时序图（`sequenceDiagram`），或用于生命周期和状态机的状态图（`stateDiagram-v2`）。四者都由 `omm validate` 校验，并在查看器中渲染。流程图也可用作面向非技术读者的业务流程图：开始/结束、步骤、是/否判断、输入/输出、文档、子流程，以及每个角色一条泳道（`subgraph`）。
 
 ## CLI
 

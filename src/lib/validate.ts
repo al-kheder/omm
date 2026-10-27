@@ -1,8 +1,10 @@
 import { parseMermaid } from './diff.js';
 import { extractRefs } from './refs.js';
-import { detectDiagramType } from './diagram.js';
+import { contentLines, detectDiagramType } from './diagram.js';
 import { parseErDiagram } from './er.js';
 import { parseSequenceDiagram } from './sequence.js';
+import { parseStateDiagram, stateDisplayId } from './state.js';
+import { parseFlowchart, type FlowShape } from './flowchart.js';
 import type { ValidationIssue, ValidationResult } from '../types.js';
 
 // --- Source-of-truth constants ---
@@ -18,12 +20,12 @@ export const CLASSDEF_PALETTE: Record<string, Record<string, string>> = {
 
 // --- Helpers ---
 
-const GRAPH_DECL = /^(graph|flowchart)\s+(LR|RL|TD|TB|BT)\s*$/i;
-const DIRECTIVE_LINE = /^(graph|flowchart|classDef|class |click |style |linkStyle|subgraph|end$|%%)/i;
+const GRAPH_DECL = /^(graph|flowchart)(\s+(LR|RL|TD|TB|BT))?\s*;?\s*$/i;
 
-// Edges we check for labels in v1: -->, ==>, -.->
-const EDGE_LINE = /(-->|==>|-.->)/;
-const EDGE_HAS_LABEL = /\|.*?\|/;
+// Start/end shapes: a flowchart with one of these is a process flowchart
+const TERMINATOR_SHAPES = new Set<FlowShape>(['stadium', 'small-circle', 'double-circle']);
+// Shapes whose edges never need a label
+const UNLABELLED_SHAPES = new Set<FlowShape>([...TERMINATOR_SHAPES, 'circle']);
 
 const CLASSDEF_LINE = /^classDef\s+(\S+)\s+(.+)$/i;
 const CLASSDEF_ATTR = /(\w+)\s*:\s*(#[0-9a-fA-F]{3,8})/g;
@@ -36,7 +38,8 @@ function checkBracketBalance(line: string): boolean {
   const counts: Record<string, number> = { '[': 0, ']': 0, '(': 0, ')': 0, '{': 0, '}': 0 };
   let inQuote = false;
 
-  for (const ch of line) {
+  // The flag shape `id>text]` has no opening bracket
+  for (const ch of line.replace(/([A-Za-z0-9_])>[^\]"]*\]/g, '$1')) {
     if (ch === '"') {
       inQuote = !inQuote;
       continue;
@@ -57,45 +60,35 @@ function formatAvailable(elements: string[], max = 10): string {
 
 // --- Flowchart rules ---
 
-function checkFlowchart(text: string, issues: ValidationIssue[]): void {
+function checkFlowchart(text: string, type: string, issues: ValidationIssue[]): void {
   const lines = text.split('\n');
-  const contentLines = lines.map(l => l.trim()).filter(l => l && !l.startsWith('%%'));
+  const first = contentLines(text)[0]?.text;
 
   // Rule: graph-declaration
-  if (contentLines.length === 0 || !GRAPH_DECL.test(contentLines[0])) {
+  if (!first || !GRAPH_DECL.test(first)) {
     issues.push({
       level: 'error',
       rule: 'graph-declaration',
-      message: 'Diagram must start with a graph/flowchart direction declaration (e.g., "graph LR"), "erDiagram" or "sequenceDiagram"',
+      message: 'Diagram must start with a graph/flowchart declaration (e.g., "graph LR" or "flowchart TD"), "erDiagram", "sequenceDiagram" or "stateDiagram-v2"',
       line: 1,
     });
   }
 
   // Line-based checks
+  const bracketLines = new Set<number>();
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     if (!trimmed || trimmed.startsWith('%%')) continue;
 
     // Rule: balanced-brackets (quote-aware)
     if (!checkBracketBalance(trimmed)) {
+      bracketLines.add(i + 1);
       issues.push({
         level: 'error',
         rule: 'balanced-brackets',
         message: `Unbalanced brackets on line: ${trimmed}`,
         line: i + 1,
       });
-    }
-
-    // Rule: edge-label (v1: -->, ==>, -.->)
-    if (EDGE_LINE.test(trimmed) && !DIRECTIVE_LINE.test(trimmed)) {
-      if (!EDGE_HAS_LABEL.test(trimmed)) {
-        issues.push({
-          level: 'warning',
-          rule: 'edge-label',
-          message: `Edge without label: ${trimmed}`,
-          line: i + 1,
-        });
-      }
     }
 
     // Rule: classdef-name and classdef-color
@@ -128,6 +121,50 @@ function checkFlowchart(text: string, issues: ValidationIssue[]): void {
           }
         }
       }
+    }
+  }
+
+  const fc = parseFlowchart(text);
+
+  // Rule: flowchart-syntax — statements the parser could not read (unbalanced lines are already reported)
+  if (type === 'flowchart') {
+    for (const error of fc.errors) {
+      if (!bracketLines.has(error.line)) {
+        issues.push({ level: 'error', rule: 'flowchart-syntax', message: error.message, line: error.line });
+      }
+    }
+  }
+
+  const shapeOf = (id: string) => fc.nodes.get(id)?.shape ?? 'rect';
+  const edgeText = (e: { from: string; to: string; arrow: string }) => `${e.from} ${e.arrow} ${e.to}`;
+
+  if ([...fc.nodes.values()].some(n => TERMINATOR_SHAPES.has(n.shape))) {
+    // Process flowchart (it has a start or end): only the answers leaving a decision need labels
+    for (const e of fc.edges) {
+      if (shapeOf(e.from) === 'diamond' && !e.label && e.style !== 'invisible') {
+        issues.push({ level: 'warning', rule: 'edge-label', message: `Decision branch without label (e.g. Yes / No): ${edgeText(e)}`, line: e.line });
+      }
+    }
+
+    // Rule: decision-branches — a decision with fewer than two ways out is not a decision
+    for (const n of fc.nodes.values()) {
+      if (n.shape !== 'diamond') continue;
+      const out = fc.edges.filter(e => e.from === n.id && e.style !== 'invisible').length;
+      if (out < 2) {
+        issues.push({
+          level: 'warning',
+          rule: 'decision-branches',
+          message: `Decision ${n.id} has ${out} outgoing branch${out === 1 ? '' : 'es'} (expected at least 2)`,
+          line: n.line,
+        });
+      }
+    }
+  } else {
+    // Rule: edge-label — architecture diagrams name what flows along every arrow (connectors excepted)
+    for (const e of fc.edges) {
+      if (e.label || e.head !== 'arrow' || e.style === 'invisible') continue;
+      if (UNLABELLED_SHAPES.has(shapeOf(e.from)) || UNLABELLED_SHAPES.has(shapeOf(e.to))) continue;
+      issues.push({ level: 'warning', rule: 'edge-label', message: `Edge without label: ${edgeText(e)}`, line: e.line });
     }
   }
 }
@@ -198,6 +235,46 @@ function checkSequenceDiagram(text: string, issues: ValidationIssue[]): void {
   }
 }
 
+// --- State diagram rules ---
+
+const PSEUDO_OR_CONTROL = new Set(['start', 'end', 'choice', 'fork', 'join']);
+
+function checkStateDiagram(text: string, issues: ValidationIssue[]): void {
+  const sd = parseStateDiagram(text);
+
+  // Rule: state-syntax — anything the parser could not read
+  for (const error of sd.errors) {
+    issues.push({ level: 'error', rule: 'state-syntax', message: error.message, line: error.line });
+  }
+
+  // Rule: state-orphan — a state with no transitions (a composite state also counts as
+  // connected when one of its children is)
+  const all = [...sd.states.values()];
+  const real = all.filter(s => s.kind !== 'start' && s.kind !== 'end');
+  if (real.length > 1) {
+    const connected = new Set(sd.transitions.flatMap(t => [t.from, t.to]));
+    for (const s of real) {
+      const viaChild = s.composite && all.some(c => c.parent === s.id && connected.has(c.id));
+      if (!connected.has(s.id) && !viaChild) {
+        issues.push({ level: 'warning', rule: 'state-orphan', message: `State ${s.id} has no transitions` });
+      }
+    }
+  }
+
+  // Rule: state-transition-label — a transition between two ordinary states should name its trigger
+  for (const t of sd.transitions) {
+    const ends = [sd.states.get(t.from)?.kind ?? 'state', sd.states.get(t.to)?.kind ?? 'state'];
+    if (!t.label && !ends.some(k => PSEUDO_OR_CONTROL.has(k))) {
+      issues.push({
+        level: 'warning',
+        rule: 'state-transition-label',
+        message: `Transition without trigger: ${stateDisplayId(t.from)} --> ${stateDisplayId(t.to)}`,
+        line: t.line,
+      });
+    }
+  }
+}
+
 // --- Main validation function ---
 
 export interface ValidateContext {
@@ -213,8 +290,10 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     checkErDiagram(text, issues);
   } else if (type === 'sequence') {
     checkSequenceDiagram(text, issues);
+  } else if (type === 'state') {
+    checkStateDiagram(text, issues);
   } else {
-    checkFlowchart(text, issues);
+    checkFlowchart(text, type, issues);
   }
 
   // Rule: ref-exists, ref-self and ref-ancestor (only when context provided).
@@ -244,11 +323,11 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     }
   }
 
-  // Rule: node-count (uses parseMermaid for counting only; entities for ER, participants for sequence diagrams)
+  // Rule: node-count (uses parseMermaid for counting only; entities for ER, participants for sequence, states for state diagrams)
   const parsed = parseMermaid(text);
   const nodeCount = parsed.nodes.size;
-  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : 'nodes';
-  if (nodeCount > 0 && nodeCount < 3 && type !== 'er' && type !== 'sequence') {
+  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : type === 'state' ? 'states' : 'nodes';
+  if (nodeCount > 0 && nodeCount < 3 && (type === 'flowchart' || type === 'unknown')) {
     issues.push({
       level: 'warning',
       rule: 'node-count',

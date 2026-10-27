@@ -6,6 +6,8 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Changed
 
+- **The viewer reads flowcharts with the same parser as `omm validate` and `omm diff`** (`src/lib/flowchart.ts`). Before, it dropped edges written as `A -- Yes --> B`, the rest of chains (`a --> b --> c`) and `&` groups, nodes with `[/ /]` or `[[ ]]` shapes, and showed brackets in `([Start])` labels. Edge labels no longer show their quotes. Existing architecture diagrams look the same otherwise.
+- **`balanced-brackets`** no longer reports the flag shape `id>text]`.
 - **Development uses pnpm** (pinned to `pnpm@10.34.6` via `packageManager`). Run `corepack enable`, then `pnpm install`.
   - `pnpm-lock.yaml` replaces `package-lock.json`. It was converted with `pnpm import`, so every dependency version is unchanged.
   - CI and the release workflow use pnpm.
@@ -14,6 +16,19 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **Process flowcharts** for explaining workflows to people who do not know the code.
+  - **Symbols:** start/end `([ ])`, step `[ ]`, decision `{ }`, input/output `[/ /]`, document `@{ shape: doc }`, subprocess `[[ ]]`, connector `(( ))`, stored data `[( )]`, plus hexagon, trapezoid and flag shapes.
+  - **Lanes:** `subgraph id [Role] … end` is drawn as a labelled lane, so a diagram can show who does each step.
+  - **Viewer:** long labels wrap, edge labels get their own space, dotted and thick lines and circle/cross arrow ends are drawn.
+  - **Export:** new **svg** and **png** buttons download the selected perspective in the current theme. The new **clean** button hides file paths under element names.
+  - **`omm validate`:** accepts `flowchart` without a direction; reports unreadable lines with line numbers (`flowchart-syntax`); in a flowchart with a start or end node, only decision branches need labels, and a decision with fewer than two ways out is reported (`decision-branches`).
+  - **`/omm-scan`:** new "Process Flowchart Rules" and a `business-processes` perspective.
+- **State diagrams (`stateDiagram-v2`)** for status fields, lifecycles and state machines.
+  - **Parsing:** states with labels and descriptions, transitions with triggers, `[*]` start and end, composite states, `<<choice>>`/`<<fork>>`/`<<join>>`, notes and `direction`.
+  - **`omm validate`:** reports syntax errors with line numbers (`state-syntax`), and warns about states without transitions (`state-orphan`) and transitions without a trigger (`state-transition-label`).
+  - **`omm diff`:** reports added and removed states and transitions.
+  - **Viewer:** draws states, start and end markers, choices, fork/join bars, notes and composite states as nested boxes. State diagrams can also be nested inside flowcharts.
+  - **`/omm-scan`:** new "State Diagram Rules"; the `state-transitions` perspective uses them.
 - **Sequence diagrams (`sequenceDiagram`)** for request lifecycles, protocols and messages between components.
   - **Parsing:** participants and actors with labels, all message arrows (call, reply, async, failure, both directions), activations (`+`/`-`, `activate`/`deactivate`), notes, `loop`/`alt`/`else`/`opt`/`par`/`critical`/`break`/`rect` blocks, `box` and `autonumber`.
   - **`omm validate`:** reports sequence syntax errors with line numbers (`seq-syntax`), and warns about participants without messages (`seq-unused-participant`), messages without text (`seq-message-label`) and diagrams with more than 30 messages (`message-count`).
