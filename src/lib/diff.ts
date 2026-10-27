@@ -1,5 +1,7 @@
 import type { DiffResult } from '../types.js';
-import { detectDiagramType, parseErDiagram } from './er.js';
+import { detectDiagramType } from './diagram.js';
+import { parseErDiagram } from './er.js';
+import { parseSequenceDiagram } from './sequence.js';
 
 interface MermaidElement {
   nodes: Set<string>;
@@ -18,6 +20,26 @@ function parseEr(text: string): MermaidElement {
     for (const attr of entity.attributes) attributes.add(`${entity.name}.${attr.name}`);
   }
   return { nodes, edges, attributes };
+}
+
+/**
+ * Sequence diagram as nodes (participants) and edges ("a ->> b: text").
+ * The message text is part of the identity; a repeated message gets a " (2)", " (3)" … suffix.
+ * Reordering messages is not reported.
+ */
+function parseSequence(text: string): MermaidElement {
+  const seq = parseSequenceDiagram(text);
+  const nodes = new Set(seq.participants.keys());
+  const edges = new Set<string>();
+  const seen = new Map<string, number>();
+  for (const e of seq.events) {
+    if (e.kind !== 'message') continue;
+    const key = `${e.from} ${e.arrow} ${e.to}: ${e.text}`;
+    const n = (seen.get(key) ?? 0) + 1;
+    seen.set(key, n);
+    edges.add(n === 1 ? key : `${key} (${n})`);
+  }
+  return { nodes, edges };
 }
 
 const SKIP_LINE = /^(graph|flowchart|sequenceDiagram|classDiagram|erDiagram|stateDiagram|gantt|pie|gitGraph|classDef|class\s|click\s|style\s|linkStyle|subgraph|end$|direction\s|%%)/i;
@@ -134,7 +156,9 @@ function readArrow(s: string): { arrow: string; length: number } | null {
  * Edge identity is `src arrow dst`; labels are not part of it.
  */
 export function parseMermaid(text: string): MermaidElement {
-  if (detectDiagramType(text) === 'er') return parseEr(text);
+  const type = detectDiagramType(text);
+  if (type === 'er') return parseEr(text);
+  if (type === 'sequence') return parseSequence(text);
 
   const nodes = new Set<string>();
   const edges = new Set<string>();

@@ -3,7 +3,9 @@
  * (bundled as dist/omm-viewer.js). Keep it dependency-free.
  */
 
-export type DiagramType = 'flowchart' | 'er' | 'unknown';
+import { contentLines } from './diagram.js';
+
+export { detectDiagramType, type DiagramType } from './diagram.js';
 
 export interface ErAttribute {
   type: string;
@@ -68,26 +70,6 @@ export function cardinalityText(marker: string): string {
 
 function unquote(s: string): string {
   return s.startsWith('"') && s.endsWith('"') ? s.slice(1, -1) : s;
-}
-
-function contentLines(text: string): Array<{ line: number; text: string }> {
-  const out: Array<{ line: number; text: string }> = [];
-  let inFrontmatter = false;
-  text.split('\n').forEach((raw, i) => {
-    const t = raw.trim();
-    if (i === 0 && t === '---') { inFrontmatter = true; return; }
-    if (inFrontmatter) { if (t === '---') inFrontmatter = false; return; }
-    if (t && !t.startsWith('%%')) out.push({ line: i + 1, text: t });
-  });
-  return out;
-}
-
-/** Detect the Mermaid diagram type from its first statement */
-export function detectDiagramType(text: string): DiagramType {
-  const first = contentLines(text)[0]?.text ?? '';
-  if (/^(graph|flowchart)(\s|$)/i.test(first)) return 'flowchart';
-  if (/^erDiagram(\s|$)/.test(first)) return 'er';
-  return 'unknown';
 }
 
 export function parseErDiagram(text: string): ErDiagram {

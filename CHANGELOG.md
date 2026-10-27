@@ -14,6 +14,12 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **Sequence diagrams (`sequenceDiagram`)** for request lifecycles, protocols and messages between components.
+  - **Parsing:** participants and actors with labels, all message arrows (call, reply, async, failure, both directions), activations (`+`/`-`, `activate`/`deactivate`), notes, `loop`/`alt`/`else`/`opt`/`par`/`critical`/`break`/`rect` blocks, `box` and `autonumber`.
+  - **`omm validate`:** reports sequence syntax errors with line numbers (`seq-syntax`), and warns about participants without messages (`seq-unused-participant`), messages without text (`seq-message-label`) and diagrams with more than 30 messages (`message-count`).
+  - **`omm diff`:** reports added and removed participants and messages.
+  - **Viewer:** draws participant columns with lifelines, messages top to bottom, activation bars, notes and labelled block frames. Sequence diagrams can also be nested inside flowcharts.
+  - **`/omm-scan`:** new "Sequence Diagram Rules"; `request-lifecycle` uses them when the order of calls matters.
 - **ER diagrams (`erDiagram`)** for data models such as database schemas, ORM models and file formats.
   - **Parsing:** entities, aliases (`product["Product"]`), attributes with types, `PK`/`FK`/`UK` keys and comments, relationships with cardinality (`||`, `|o`, `}|`, `}o` …), identifying (`--`) and non-identifying (`..`) lines, and `direction`.
   - **`omm validate`:** reports ER syntax errors with line numbers (`er-syntax`), warns about entities without relationships (`er-orphan-entity`), and counts entities for the size check.

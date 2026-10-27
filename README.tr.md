@@ -91,7 +91,7 @@ Görüntüleyici, bu iç içe yapıyı dosya sistemine bakarak otomatik algılar
 
 Her element en fazla 7 alan taşıyabilir: `description`, `diagram`, `context`, `constraint`, `concern`, `todo`, `note`.
 
-Diyagramlar akış şemalarıdır (`graph` / `flowchart`) veya veritabanı şemaları gibi veri modelleri için ER diyagramlarıdır (`erDiagram`). Her ikisi de `omm validate` ile doğrulanır ve görüntüleyicide çizilir.
+Diyagramlar akış şemaları (`graph` / `flowchart`), veritabanı şemaları gibi veri modelleri için ER diyagramları (`erDiagram`) veya bir istek ya da protokoldeki çağrı sırası için sıra diyagramlarıdır (`sequenceDiagram`). Üçü de `omm validate` ile doğrulanır ve görüntüleyicide çizilir.
 
 ## CLI
 

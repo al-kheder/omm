@@ -469,9 +469,9 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   const data = classesData[cls];
   if (!data?.diagram) return null;
 
-  if (window.OmmViewer && OmmViewer.detectDiagramType(data.diagram) === 'er') {
-    return renderErGroup(data.diagram, scopedPath);
-  }
+  const diagramType = window.OmmViewer ? OmmViewer.detectDiagramType(data.diagram) : 'flowchart';
+  if (diagramType === 'er') return renderErGroup(data.diagram, scopedPath);
+  if (diagramType === 'sequence') return renderSeqGroup(data.diagram, scopedPath);
 
   const parsed = parseFlowchart(data.diagram);
   const {rankdir, nodes, edges} = parsed;
@@ -804,6 +804,199 @@ function renderErGroup(text, scopedPath) {
     svg += `<g class="reg-node er-entity" data-cls="${id}" onclick="event.stopPropagation();window.__openSb('${id}')">${body}</g>`;
   }
 
+  return { svgContent: svg, W, H, labelOverlay: '' };
+}
+
+// ── Sequence diagram renderer ─────────────────────────────
+// Participants are columns with lifelines; messages are arrows drawn top to bottom in
+// order. Columns are pushed apart until every message label fits. Blocks (loop, alt, …)
+// are labelled frames around what they contain; `rect` is a tinted band.
+const SEQ_SAFE_COLOR = /^(rgba?\([\d\s.,%]+\)|#[0-9a-f]{3,8}|[a-z]+)$/i;
+
+function renderSeqGroup(text, scopedPath) {
+  const seq = OmmViewer.parseSequenceDiagram(text);
+  const parts = [...seq.participants.values()];
+  if (!parts.length) return null;
+
+  const PAD_L = 16, PAD_R = 20, PAD_T = 16, PAD_B = 16;
+  const HEAD_H = 34, GAP = 36, SELF_W = 30, NOTE_PAD = 8, ACT_W = 10;
+  const th = theme(), st = nodeStyle({}), ec = th.edgeColor0;
+  const msgFont = '11px Inter,system-ui', headFont = '600 12px Inter,system-ui';
+  const name = p => p.label || p.id;
+
+  // Column centres: start from the header widths, then widen gaps for labels
+  const idx = {};
+  parts.forEach((p, i) => { idx[p.id] = i; });
+  const colW = parts.map(p => Math.max(90, tw(name(p), headFont) + 28));
+  const gaps = parts.map((_, i) => (i ? (colW[i - 1] + colW[i]) / 2 + GAP : 0));
+  const needs = [];
+  for (const e of seq.events) {
+    if (e.kind === 'message') {
+      const a = idx[e.from], b = idx[e.to];
+      const w = tw(e.text, msgFont) + 24 + (seq.autonumber ? 20 : 0);
+      if (a !== b) needs.push([Math.min(a, b), Math.max(a, b), w]);
+      else if (a + 1 < parts.length) needs.push([a, a + 1, w + SELF_W]);
+    } else if (e.kind === 'note' && e.placement !== 'over') {
+      const a = idx[e.participants[0]], w = tw(e.text, msgFont) + NOTE_PAD * 2 + 16;
+      if (e.placement === 'right of' && a + 1 < parts.length) needs.push([a, a + 1, w]);
+      if (e.placement === 'left of' && a > 0) needs.push([a - 1, a, w]);
+    }
+  }
+  needs.sort((p, q) => (p[1] - p[0]) - (q[1] - q[0]));
+  for (const [a, b, w] of needs) {
+    let span = 0;
+    for (let i = a + 1; i <= b; i++) span += gaps[i];
+    if (span < w) gaps[b] += w - span;
+  }
+  const cx = [];
+  gaps.reduce((acc, g, i) => (cx[i] = acc + g), 0);
+  const X = id => cx[idx[id]];
+
+  // Horizontal extent of everything drawn, so the group can be shifted and sized at the end
+  let minX = Infinity, maxX = -Infinity;
+  const blocks = [];
+  const touch = (a, b) => {
+    minX = Math.min(minX, a, b); maxX = Math.max(maxX, a, b);
+    for (const bl of blocks) { bl.minX = Math.min(bl.minX, a, b); bl.maxX = Math.max(bl.maxX, a, b); }
+  };
+  parts.forEach((p, i) => { minX = Math.min(minX, cx[i] - colW[i] / 2); maxX = Math.max(maxX, cx[i] + colW[i] / 2); });
+
+  // Activations: a stack of start y per participant
+  const active = {}, actBoxes = [];
+  const depth = id => (active[id] || []).length;
+  const startAct = (id, y) => (active[id] = active[id] || []).push(y);
+  const stopAct = (id, y) => {
+    const s = active[id];
+    if (s?.length) actBoxes.push({ x: X(id) - ACT_W / 2 + (s.length - 1) * 4, y1: s.pop(), y2: y });
+  };
+  // Where a message leaves or reaches a lifeline: the edge of the innermost activation bar
+  const edgeX = (id, right) => {
+    const d = depth(id);
+    return d ? X(id) + (d - 1) * 4 + (right ? ACT_W / 2 : -ACT_W / 2) : X(id);
+  };
+
+  const uid = 'sq' + Math.random().toString(36).slice(2, 7);
+  const defs = `<defs><marker id="${uid}f" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L8,3 L0,6 z" fill="${ec}"/></marker>
+    <marker id="${uid}a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L7,4 L0,8" fill="none" stroke="${ec}" stroke-width="1.5"/></marker></defs>`;
+  const text_ = (x, y, s, anchor = 'middle', extra = '') =>
+    `<text x="${r1(x)}" y="${r1(y)}" text-anchor="${anchor}" dominant-baseline="central" font-family="Inter,system-ui" font-size="11" fill="${st.text}" ${extra}>${esc(s)}</text>`;
+
+  let bands = '', frames = '', fore = '';
+  let y = PAD_T + HEAD_H + 12; // top of the next row
+  let num = 0;
+
+  for (const e of seq.events) {
+    if (e.kind === 'message') {
+      const style = OmmViewer.messageStyle(e.arrow);
+      const self = e.from === e.to;
+      const right = self || X(e.to) >= X(e.from);
+      const ly = y + 20;
+      const x1 = edgeX(e.from, right);
+      if (e.activate) startAct(e.to, ly);
+      const x2 = self ? edgeX(e.to, true) : edgeX(e.to, !right);
+      const dash = style.dashed ? 'stroke-dasharray="5,4"' : '';
+      const head = style.head === 'filled' ? `marker-end="url(#${uid}f)"` : style.head === 'async' ? `marker-end="url(#${uid}a)"` : '';
+      const tail = style.bidirectional ? `marker-start="url(#${uid}f)"` : '';
+      const d = self ? `M${r1(x1)},${ly} H${r1(x1 + SELF_W)} V${ly + 14} H${r1(x2)}` : `M${r1(x1)},${ly} H${r1(x2)}`;
+      fore += `<path class="edge-path" d="${d}" stroke="${ec}" stroke-width="1.5" fill="none" ${dash} ${head} ${tail} data-from="${esc(e.from)}" data-to="${esc(e.to)}"/>`;
+      if (style.head === 'cross') {
+        const cx2 = self ? x2 : x2 + (right ? -4 : 4), cy2 = self ? ly + 14 : ly;
+        fore += `<path d="M${r1(cx2 - 4)},${cy2 - 4} L${r1(cx2 + 4)},${cy2 + 4} M${r1(cx2 - 4)},${cy2 + 4} L${r1(cx2 + 4)},${cy2 - 4}" stroke="${ec}" stroke-width="1.5"/>`;
+      }
+      const label = e.text, lx = self ? x1 + (seq.autonumber ? 12 : 4) : (x1 + x2) / 2;
+      if (seq.autonumber) {
+        num++;
+        fore += `<circle cx="${r1(x1)}" cy="${ly}" r="8" fill="${ec}"/>` + text_(x1, ly, String(num), 'middle', `font-size="9" font-weight="600" fill="${th.edgeLabelBg}"`);
+      }
+      const lw = tw(label, msgFont);
+      fore += self ? text_(lx, y + 9, label, 'start') : text_(lx, y + 9, label);
+      touch(Math.min(x1, x2, self ? lx : lx - lw / 2), Math.max(x1, x2, self ? Math.max(x1 + SELF_W, lx + lw) : lx + lw / 2));
+      if (e.deactivate) stopAct(e.from, ly);
+      y += self ? 50 : 36;
+    } else if (e.kind === 'note') {
+      const w = tw(e.text, msgFont) + NOTE_PAD * 2;
+      let nx1;
+      if (e.placement === 'over') {
+        const xs = e.participants.map(X), a = Math.min(...xs), b = Math.max(...xs);
+        const nw = Math.max(w, b - a + 40);
+        nx1 = (a + b) / 2 - nw / 2;
+        fore += `<rect x="${r1(nx1)}" y="${y + 4}" width="${r1(nw)}" height="26" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1"/>`;
+        fore += text_(nx1 + nw / 2, y + 17, e.text);
+        touch(nx1, nx1 + nw);
+      } else {
+        const px = X(e.participants[0]);
+        nx1 = e.placement === 'right of' ? px + 10 : px - 10 - w;
+        fore += `<rect x="${r1(nx1)}" y="${y + 4}" width="${r1(w)}" height="26" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1"/>`;
+        fore += text_(nx1 + w / 2, y + 17, e.text);
+        touch(nx1, nx1 + w);
+      }
+      y += 38;
+    } else if (e.kind === 'activate') {
+      startAct(e.participant, y + 4);
+    } else if (e.kind === 'deactivate') {
+      stopAct(e.participant, y + 4);
+    } else if (e.kind === 'block') {
+      blocks.push({ type: e.type, label: e.label, top: y + 4, minX: Infinity, maxX: -Infinity, branches: [] });
+      y += e.type === 'rect' ? 10 : 30;
+    } else if (e.kind === 'branch') {
+      blocks[blocks.length - 1]?.branches.push({ y: y + 4, label: e.label });
+      y += 26;
+    } else if (e.kind === 'end') {
+      const bl = blocks.pop();
+      if (!bl) continue;
+      if (bl.minX === Infinity) { bl.minX = cx[0]; bl.maxX = cx[cx.length - 1]; }
+      const bottom = y + 4;
+      if (bl.type === 'rect') {
+        const fill = SEQ_SAFE_COLOR.test(bl.label) ? bl.label : th.subFill;
+        const x1 = bl.minX - 8, x2 = bl.maxX + 8;
+        bands += `<rect x="${r1(x1)}" y="${bl.top}" width="${r1(x2 - x1)}" height="${bottom - bl.top}" fill="${esc(fill)}" fill-opacity="0.18" rx="3"/>`;
+        touch(x1, x2);
+        y += 10;
+        continue;
+      }
+      const tabW = tw(bl.type, '600 10px Inter,system-ui') + 14;
+      const condW = bl.label ? tw(`[${bl.label}]`, msgFont) + 12 : 0;
+      const x1 = bl.minX - 12, x2 = Math.max(bl.maxX + 12, x1 + tabW + condW + 12);
+      frames += `<rect x="${r1(x1)}" y="${bl.top}" width="${r1(x2 - x1)}" height="${bottom - bl.top}" fill="none" stroke="${th.subStroke}" stroke-width="1" rx="2"/>`;
+      frames += `<path d="M${r1(x1)},${bl.top} h${tabW} v12 l-6,6 H${r1(x1)} z" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1"/>`;
+      frames += `<text x="${r1(x1 + 6)}" y="${bl.top + 9}" dominant-baseline="central" font-family="Inter,system-ui" font-size="10" font-weight="600" fill="${th.subLabelFill}">${esc(bl.type)}</text>`;
+      if (bl.label) frames += text_(x1 + tabW + 8, bl.top + 9, `[${bl.label}]`, 'start', `fill="${th.edgeLabelText}"`);
+      for (const br of bl.branches) {
+        frames += `<path d="M${r1(x1)},${br.y} H${r1(x2)}" stroke="${th.subStroke}" stroke-width="1" stroke-dasharray="4,3"/>`;
+        if (br.label) frames += text_(x1 + 8, br.y + 11, `[${br.label}]`, 'start', `fill="${th.edgeLabelText}"`);
+      }
+      touch(x1, x2); // widens any enclosing block
+      y += 16;
+    }
+  }
+
+  const bottom = y + 6;
+  for (const id of Object.keys(active)) while (active[id].length) stopAct(id, bottom);
+
+  // Lifelines, activation bars and participant headers
+  let lanes = '', heads = '';
+  parts.forEach((p, i) => {
+    const x = cx[i], w = colW[i];
+    const pid = esc(scopedPath + '/' + p.id);
+    lanes += `<path d="M${r1(x)},${PAD_T + HEAD_H} V${bottom}" stroke="${th.subStroke}" stroke-width="1" stroke-dasharray="3,3"/>`;
+    let shape;
+    if (p.kind === 'actor') {
+      const t = PAD_T;
+      shape = `<rect x="${r1(x - w / 2)}" y="${t}" width="${r1(w)}" height="${HEAD_H}" fill="transparent"/>
+        <g stroke="${st.border}" stroke-width="1.5" fill="none"><circle cx="${r1(x)}" cy="${t + 5}" r="4.5"/>
+        <path d="M${r1(x)},${t + 9.5} V${t + 17} M${r1(x - 7)},${t + 12.5} H${r1(x + 7)} M${r1(x)},${t + 17} l-5,6 M${r1(x)},${t + 17} l5,6"/></g>
+        <text class="node-lbl" x="${r1(x)}" y="${t + 30}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="${st.text}">${esc(name(p))}</text>`;
+    } else {
+      shape = `<rect class="nshape" x="${r1(x - w / 2)}" y="${PAD_T}" width="${r1(w)}" height="${HEAD_H}" rx="4" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>
+        <text class="node-lbl" x="${r1(x)}" y="${PAD_T + HEAD_H / 2}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="${st.text}">${esc(name(p))}</text>`;
+    }
+    heads += `<g class="reg-node seq-participant" data-cls="${pid}" onclick="event.stopPropagation();window.__openSb('${pid}')">${shape}</g>`;
+  });
+  const bars = actBoxes.map(b => `<rect x="${r1(b.x)}" y="${r1(b.y1)}" width="${ACT_W}" height="${r1(Math.max(6, b.y2 - b.y1))}" fill="${st.bg}" stroke="${st.border}" stroke-width="1.5"/>`).join('');
+
+  const dx = PAD_L - minX;
+  const W = r1(maxX - minX + PAD_L + PAD_R), H = r1(bottom + PAD_B);
+  const svg = `${defs}<g transform="translate(${r1(dx)},0)">${bands}${lanes}${frames}${bars}${fore}${heads}</g>`;
   return { svgContent: svg, W, H, labelOverlay: '' };
 }
 

@@ -49,7 +49,7 @@ From the catalog below, choose which perspectives are meaningful for this codeba
 | Perspective | When to create | What it answers |
 | --- | --- | --- |
 | `overall-architecture` | **Always** | What exists and how pieces relate |
-| `request-lifecycle` | Any server/API | How a request enters and gets handled end-to-end |
+| `request-lifecycle` | Any server/API | How a request enters and gets handled end-to-end. Use a **sequence diagram** when the order of calls matters; see "Sequence Diagram Rules" |
 | `data-flow` | Any data processing, DB usage | Where data comes from, transforms, and lands |
 | `dependency-map` | Complex module graph | What depends on what, what's shared |
 | `external-integrations` | External APIs/services | What the system connects to and why |
@@ -240,6 +240,61 @@ Write each relationship as `A <left><line><right> B : label`. A label is require
 
 - Keep 3–15 entities per diagram. Split large schemas by domain (for example `data-model/billing`, `data-model/catalog`), each with its own ER diagram.
 - Run `omm validate` afterwards. It reports ER syntax errors with line numbers, and entities without relationships.
+
+## Sequence Diagram Rules
+
+Use a `sequenceDiagram` instead of a flowchart when the element is about **order over time**:
+
+- a request passing through several components
+- a login, checkout or sync protocol
+- messages between processes or services
+
+Keep using flowcharts for structure (what exists and what depends on what), and use one sequence diagram per scenario.
+
+```bash
+omm write request-lifecycle/login diagram - <<'MERMAID'
+sequenceDiagram
+    actor user as User
+    participant web as Web App
+    participant api as API
+    participant db as Postgres
+    user->>web: submit credentials
+    web->>+api: POST /login
+    api->>db: SELECT user by email
+    db-->>api: user row
+    alt password matches
+        api-->>web: 200 + session cookie
+    else wrong password
+        api-->>web: 401
+    end
+    deactivate api
+MERMAID
+```
+
+**Participants**
+
+- Declare every participant first, in the order the request reaches them, with `participant id as Label` (or `actor` for people). Use kebab-case ids.
+- If a participant is documented in more detail, its child element directory must have the same id, so the viewer can link to it.
+
+**Messages**
+
+Write each message as `A <arrow> B: text`. The text is required: name the real call, endpoint or event (`POST /login`, `publish order.created`).
+
+| Arrow | Meaning |
+| --- | --- |
+| `->>` | call or request |
+| `-->>` | reply |
+| `-)` | asynchronous message (fire and forget, events) |
+| `-x` / `--x` | failure or rejected message |
+
+- `+` after the arrow activates the receiver, `-` deactivates the sender (`web->>+api`, `api-->>-web`). Only use activations when they make the diagram clearer.
+- Use `alt`/`else` for branches, `opt` for optional steps, `loop` for repetition and `par`/`and` for parallel work. Close each with `end`.
+- `Note over a,b: text` for facts that are not messages (for example where state is stored).
+
+**Size and checking**
+
+- Keep it to about 3–8 participants and at most 30 messages. Split long flows into one diagram per scenario (for example `request-lifecycle/login`, `request-lifecycle/checkout`).
+- Run `omm validate` afterwards. It reports sequence syntax errors with line numbers (unclosed blocks, `else` outside `alt`, messages without text) and participants without messages.
 
 ## General Rules
 
