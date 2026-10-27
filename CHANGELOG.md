@@ -8,6 +8,7 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 - **The viewer reads flowcharts with the same parser as `omm validate` and `omm diff`** (`src/lib/flowchart.ts`). Before, it dropped edges written as `A -- Yes --> B`, the rest of chains (`a --> b --> c`) and `&` groups, nodes with `[/ /]` or `[[ ]]` shapes, and showed brackets in `([Start])` labels. Edge labels no longer show their quotes. Existing architecture diagrams look the same otherwise.
 - **`balanced-brackets`** no longer reports the flag shape `id>text]`.
+- **Sequence diagrams** no longer write duplicate SVG attributes. This made SVG/PNG export of sequence diagrams fail, and drew `autonumber` digits in the wrong size and color.
 - **Development uses pnpm** (pinned to `pnpm@10.34.6` via `packageManager`). Run `corepack enable`, then `pnpm install`.
   - `pnpm-lock.yaml` replaces `package-lock.json`. It was converted with `pnpm import`, so every dependency version is unchanged.
   - CI and the release workflow use pnpm.
@@ -16,6 +17,11 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **Color mode** for every diagram type. The new **mono | color** switch in the viewer toolbar changes between the original black-and-white look (still the default) and colors that show what each element is. The choice is remembered per browser, works with both themes and is used by SVG/PNG export.
+  - **Flowcharts:** start/end green, steps blue (in process flowcharts), decisions amber, input/output teal, documents violet, subprocesses indigo, data stores slate; the omm categories `entry` (blue), `store` (green), `external` (grey) and `concern` (pink). Plain architecture nodes, edges and lanes stay neutral.
+  - **ER:** entity headers blue; key badges unchanged. **Sequence:** participants and activation bars blue, notes yellow. **State:** states blue, choices amber, notes yellow; start/end markers stay black/white as in UML.
+  - Shapes and labels are unchanged, so nothing depends on color alone. Text has at least 4.5:1 contrast on its fill and outlines at least 3:1 against the background (tested for both themes).
+  - New category classes `error` and `success` for failed and successful outcomes in process flowcharts; `omm validate` accepts them.
 - **Process flowcharts** for explaining workflows to people who do not know the code.
   - **Symbols:** start/end `([ ])`, step `[ ]`, decision `{ }`, input/output `[/ /]`, document `@{ shape: doc }`, subprocess `[[ ]]`, connector `(( ))`, stored data `[( )]`, plus hexagon, trapezoid and flag shapes.
   - **Lanes:** `subgraph id [Role] … end` is drawn as a labelled lane, so a diagram can show who does each step.

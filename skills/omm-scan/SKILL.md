@@ -177,12 +177,16 @@ Report what was created/updated and suggest `omm view` to view.
   | `concern` | `#f38ba8` | Known risk or bottleneck |
   | `entry` | `#89b4fa` | Entry points (HTTP handler, CLI, queue consumer) |
   | `store` | `#a6e3a1` | Persistent storage (DB, cache, file system) |
+  | `error` | `#c0392b` | Process flowcharts: a failed or rejected outcome |
+  | `success` | `#23804a` | Process flowcharts: a successful outcome |
 
   ```text
   classDef external fill:#585b70,stroke:#585b70,color:#cdd6f4
   classDef concern fill:#f38ba8,stroke:#f38ba8,color:#1e1e2e
   classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
   classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+  classDef error fill:#fde8e8,stroke:#c0392b,color:#7a1d1d
+  classDef success fill:#e3f5e8,stroke:#23804a,color:#14532d
   ```
 
 ## ER Diagram Rules
@@ -393,6 +397,7 @@ MERMAID
 
 - Write steps as short actions in plain words: "Approve the refund", not `RefundService.approve()`. No file paths, class names or jargon.
 - Write decisions as yes/no questions ("Within 30 days?") and label **every** answer leaving them: `check -->|Yes| approve`. Use more than two answers when the process has them.
+- Mark failed or rejected outcomes with `:::error` and successful ones with `:::success` (`refuse[Explain why it is refused]:::error`). In the viewer's color mode they are drawn red and green; the label must still say what happened, since not every reader sees color.
 - Start with one `([Start])` node and end every path at an `([End])` node. A loop goes back to an earlier step with a labelled answer (`more -->|Yes| next-item`).
 - Use one `subgraph id [Role]` lane per person, team or system when more than one is involved. Each node belongs to the lane it first appears in.
 - Keep 5–15 steps. Move a long part into a `[[subprocess]]` and document it as a child element with its own process flowchart (its ID must match the child directory).
@@ -400,7 +405,7 @@ MERMAID
 - Labels are one line (use `<br>` for a deliberate line break; long labels wrap automatically). Do not add the `\n` file-path line used in architecture diagrams.
 - Run `omm validate` afterwards. In a flowchart with a start or end node, it only asks for labels on decision branches, and warns about a decision with fewer than two ways out.
 
-To present a flowchart, open it with `omm view`, click **clean** (hides file paths), select the perspective and click **png** or **svg**. The ○ button switches to the light theme, which usually suits slides better.
+To present a flowchart, open it with `omm view`, click **color** (colors by meaning) and **clean** (hides file paths), select the perspective and click **png** or **svg**. The ○ button switches to the light theme, which usually suits slides better.
 
 ## General Rules
 

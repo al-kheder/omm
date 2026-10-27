@@ -53,6 +53,7 @@ The viewer auto-refreshes when `.omm/` files change.
 
 If the user wants to share or present a diagram, tell them about the toolbar in the top-right corner:
 
+- **mono | color** switches between the original black-and-white look and colors that show what each element is (start/end, decision, input/output, data store, external service …). The choice is remembered.
 - **clean** hides the file paths under element names (useful for clients and other non-technical readers)
 - **svg** / **png** download the selected perspective, or every perspective when none is selected
 - **○** switches between the dark and light theme; the download uses the current theme
