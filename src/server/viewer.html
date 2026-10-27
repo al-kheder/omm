@@ -93,6 +93,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 .hbtn { background: none; border: 1px solid var(--border-hi); color: var(--text-mid); height: 26px; min-width: 26px; padding: 0 8px; border-radius: 5px; cursor: pointer; font-size: 13px; font-family: var(--font); transition: border-color .12s, color .12s; }
 .hbtn:hover { border-color: #3a3a3a; color: var(--text); }
 .hbtn.on { border-color: var(--text-mid); color: var(--text); }
+.hbtn:focus-visible { outline: 2px solid #818cf8; outline-offset: 1px; }
+.seg { display: inline-flex; }
+.seg .hbtn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.seg .hbtn:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
 #zoom-label { font-size: 11px; color: var(--text-dim); width: 38px; text-align: center; font-family: var(--mono); }
 
 #canvas-wrap {
@@ -299,6 +303,9 @@ body.light .reg-node:hover .nshape { stroke: #000 !important; }
     <span id="zoom-label">70%</span>
     <button class="hbtn" onclick="zoomIn()">+</button>
     <button class="hbtn" onclick="resetView()" style="font-size:11px">fit</button>
+    <span id="color-mode" class="seg" role="group" aria-label="Diagram colors" title="Diagram colors: monochrome, or colors that show what each element is">
+      <button class="hbtn" data-mode="monochrome" aria-pressed="true" onclick="setColorMode('monochrome')" style="font-size:11px">mono</button><button class="hbtn" data-mode="color" aria-pressed="false" onclick="setColorMode('color')" style="font-size:11px">color</button>
+    </span>
     <button class="hbtn" id="clean-btn" onclick="toggleClean()" title="Clean view: hide file paths under element names" style="font-size:11px">clean</button>
     <button class="hbtn" onclick="exportDiagram('svg')" title="Download the selected perspective (or everything) as SVG" style="font-size:11px">svg</button>
     <button class="hbtn" onclick="exportDiagram('png')" title="Download the selected perspective (or everything) as PNG" style="font-size:11px">png</button>
@@ -352,6 +359,25 @@ window.toggleClean = function() {
   cleanView = !cleanView;
   safeStorageSet('omm-clean', cleanView ? '1' : '0');
   applyClean();
+  rebuildCanvas();
+};
+
+// Diagram colors: 'monochrome' (default, the original look) or 'color' (semantic colors from
+// src/lib/palette.ts). Independent of the light/dark theme; remembered per browser.
+let colorMode = safeStorageGet('omm-diagram-colors') === 'color' ? 'color' : 'monochrome';
+function applyColorMode() {
+  document.querySelectorAll('#color-mode [data-mode]').forEach(b => {
+    const on = b.dataset.mode === colorMode;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+window.setColorMode = function(mode) {
+  if (mode !== 'color' && mode !== 'monochrome') return;
+  if (mode === colorMode) return;
+  colorMode = mode;
+  safeStorageSet('omm-diagram-colors', mode);
+  applyColorMode();
   rebuildCanvas();
 };
 function theme() {
@@ -497,17 +523,10 @@ function flowMarkerDefs(id, color) {
 }
 
 // ── node style ────────────────────────────────────────────
-function nodeStyle(node) {
-  const c = node.cls||'';
-  if (isDark) {
-    if (c==='external') return {bg:'#0a0a0a',border:'#666666',dash:null,text:'#cccccc'};
-    if (c==='lib')      return {bg:'#0a0a0a',border:'#666666',dash:null, text:'#cccccc'};
-    return                    {bg:'#0a0a0a',border:'#666666',dash:null, text:'#ffffff'};
-  } else {
-    if (c==='external') return {bg:'#e0e0e0',border:'#bbb',dash:null,text:'#64748b'};
-    if (c==='lib')      return {bg:'#e8e8e8',border:'#c0c0c0',dash:null, text:'#553388'};
-    return                    {bg:'#f0f0f0',border:'#999',    dash:null, text:'#1a1a1a'};
-  }
+// Colors come from src/lib/palette.ts. In monochrome mode the role is ignored and the
+// original styles are returned; in color mode the role (or the node's category class) picks them.
+function nodeStyle(node, role = 'neutral') {
+  return OmmViewer.nodeColors(colorMode, isDark ? 'dark' : 'light', role, node.cls);
 }
 
 // ── smooth path through all Dagre waypoints ───────────────
@@ -552,6 +571,7 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   const parsed = parseFlowchart(data.diagram);
   const {rankdir, nodes, subgraphs} = parsed;
   if (!nodes.length) return null;
+  const processFlowchart = OmmViewer.isProcessFlowchart(nodes.map(n => n.shape));
 
   // Lanes (subgraphs) that contain at least one node, directly or through a nested lane
   const laneOf = id => nodes.find(n => n.id === id)?.subgraph;
@@ -773,7 +793,7 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
         font-family="&quot;Plus Jakarta Sans&quot;,Inter,system-ui" font-size="9" font-weight="600" fill="${th.grpLabelCenterFill}" letter-spacing="0.05em">${esc(fmtLabel(sg.cls))}</text>`;
     } else {
       // ── regular node ──
-      const st = nodeStyle(n);
+      const st = nodeStyle(n, OmmViewer.flowNodeRole(n.shape, processFlowchart));
       const nodeScopedId = esc(scopedPath + '/' + n.id);
       const shape = flowShapeSvg(n.shape, nx, ny, dim.width, dim.height, st);
       const label = flowLabelSvg(dim.text, pos.x, pos.y, st, n.shape);
@@ -797,7 +817,7 @@ function renderErGroup(text, scopedPath) {
   const PAD_L = 16, PAD_R = 20, PAD_T = 20, PAD_B = 16;
   const HEAD_H = 26, ROW_H = 18, CELL_PAD = 10;
   const th = theme();
-  const st = nodeStyle({});
+  const st = nodeStyle({}), hd = nodeStyle({}, 'entity'); // hd: entity header (same as st in monochrome)
   const headFont = '600 12px Inter,system-ui', rowFont = '11px Inter,system-ui', monoFont = "10px 'SF Mono','Fira Code',monospace";
 
   // Measure entity boxes
@@ -860,9 +880,11 @@ function renderErGroup(text, scopedPath) {
     const { width: w, height: h, keyW, typeW } = dims[ent.name];
     const x = r1(pos.x - w / 2), y = r1(pos.y - h / 2);
     const id = esc(scopedPath + '/' + ent.name);
-    let body = `<rect class="nshape" x="${x}" y="${y}" width="${r1(w)}" height="${r1(h)}" rx="4" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>`;
-    body += `<path d="M${x},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${st.border}" stroke-width="1"/>`;
-    body += `<text class="node-lbl" x="${r1(pos.x)}" y="${r1(y + HEAD_H / 2)}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="${st.text}">${esc(ent.alias || ent.name)}</text>`;
+    let body = `<rect class="nshape" x="${x}" y="${y}" width="${r1(w)}" height="${r1(h)}" rx="4" fill="${st.bg}" stroke="${hd.border}" stroke-width="2"/>`;
+    // Color mode: tinted header band (rows stay neutral)
+    if (hd.bg !== st.bg) body += `<path d="M${r1(x + 1)},${r1(y + HEAD_H)} V${r1(y + 4)} Q${r1(x + 1)},${r1(y + 1)} ${r1(x + 4)},${r1(y + 1)} H${r1(x + w - 4)} Q${r1(x + w - 1)},${r1(y + 1)} ${r1(x + w - 1)},${r1(y + 4)} V${r1(y + HEAD_H)} Z" fill="${hd.bg}"/>`;
+    body += `<path d="M${x},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${hd.border}" stroke-width="1"/>`;
+    body += `<text class="node-lbl" x="${r1(pos.x)}" y="${r1(y + HEAD_H / 2)}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="${hd.text}">${esc(ent.alias || ent.name)}</text>`;
     ent.attributes.forEach((a, i) => {
       const ry = r1(y + HEAD_H + 3 + ROW_H * i + ROW_H / 2);
       let cx = x + CELL_PAD;
@@ -899,6 +921,10 @@ function renderSeqGroup(text, scopedPath) {
   const PAD_L = 16, PAD_R = 20, PAD_T = 16, PAD_B = 16;
   const HEAD_H = 34, GAP = 36, SELF_W = 30, NOTE_PAD = 8, ACT_W = 10;
   const th = theme(), st = nodeStyle({}), ec = th.edgeColor0;
+  // Color mode: participants, activation bars and notes get their own colors
+  // (in monochrome these equal st, or the shared note tokens)
+  const pst = nodeStyle({}, 'participant'), ast = nodeStyle({}, 'activation');
+  const noteSt = colorMode === 'color' ? nodeStyle({}, 'note') : { bg: th.subFill, border: th.subStroke };
   const msgFont = '11px Inter,system-ui', headFont = '600 12px Inter,system-ui';
   const name = p => p.label || p.id;
 
@@ -956,8 +982,12 @@ function renderSeqGroup(text, scopedPath) {
   const uid = 'sq' + Math.random().toString(36).slice(2, 7);
   const defs = `<defs><marker id="${uid}f" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L8,3 L0,6 z" fill="${ec}"/></marker>
     <marker id="${uid}a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L7,4 L0,8" fill="none" stroke="${ec}" stroke-width="1.5"/></marker></defs>`;
-  const text_ = (x, y, s, anchor = 'middle', extra = '') =>
-    `<text x="${r1(x)}" y="${r1(y)}" text-anchor="${anchor}" dominant-baseline="central" font-family="Inter,system-ui" font-size="11" fill="${st.text}" ${extra}>${esc(s)}</text>`;
+  // `extra` may override fill and font-size; an attribute must not appear twice (exported SVG is strict XML)
+  const text_ = (x, y, s, anchor = 'middle', extra = '') => {
+    const size = /\bfont-size=/.test(extra) ? '' : 'font-size="11"';
+    const fill = /\bfill=/.test(extra) ? '' : `fill="${st.text}"`;
+    return `<text x="${r1(x)}" y="${r1(y)}" text-anchor="${anchor}" dominant-baseline="central" font-family="Inter,system-ui" ${size} ${fill} ${extra}>${esc(s)}</text>`;
+  };
 
   let bands = '', frames = '', fore = '';
   let y = PAD_T + HEAD_H + 12; // top of the next row
@@ -998,13 +1028,13 @@ function renderSeqGroup(text, scopedPath) {
         const xs = e.participants.map(X), a = Math.min(...xs), b = Math.max(...xs);
         const nw = Math.max(w, b - a + 40);
         nx1 = (a + b) / 2 - nw / 2;
-        fore += `<rect x="${r1(nx1)}" y="${y + 4}" width="${r1(nw)}" height="26" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1"/>`;
+        fore += `<rect x="${r1(nx1)}" y="${y + 4}" width="${r1(nw)}" height="26" rx="3" fill="${noteSt.bg}" stroke="${noteSt.border}" stroke-width="1"/>`;
         fore += text_(nx1 + nw / 2, y + 17, e.text);
         touch(nx1, nx1 + nw);
       } else {
         const px = X(e.participants[0]);
         nx1 = e.placement === 'right of' ? px + 10 : px - 10 - w;
-        fore += `<rect x="${r1(nx1)}" y="${y + 4}" width="${r1(w)}" height="26" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1"/>`;
+        fore += `<rect x="${r1(nx1)}" y="${y + 4}" width="${r1(w)}" height="26" rx="3" fill="${noteSt.bg}" stroke="${noteSt.border}" stroke-width="1"/>`;
         fore += text_(nx1 + w / 2, y + 17, e.text);
         touch(nx1, nx1 + w);
       }
@@ -1061,16 +1091,16 @@ function renderSeqGroup(text, scopedPath) {
     if (p.kind === 'actor') {
       const t = PAD_T;
       shape = `<rect x="${r1(x - w / 2)}" y="${t}" width="${r1(w)}" height="${HEAD_H}" fill="transparent"/>
-        <g stroke="${st.border}" stroke-width="1.5" fill="none"><circle cx="${r1(x)}" cy="${t + 5}" r="4.5"/>
+        <g stroke="${pst.border}" stroke-width="1.5" fill="none"><circle cx="${r1(x)}" cy="${t + 5}" r="4.5"/>
         <path d="M${r1(x)},${t + 9.5} V${t + 17} M${r1(x - 7)},${t + 12.5} H${r1(x + 7)} M${r1(x)},${t + 17} l-5,6 M${r1(x)},${t + 17} l5,6"/></g>
         <text class="node-lbl" x="${r1(x)}" y="${t + 30}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="${st.text}">${esc(name(p))}</text>`;
     } else {
-      shape = `<rect class="nshape" x="${r1(x - w / 2)}" y="${PAD_T}" width="${r1(w)}" height="${HEAD_H}" rx="4" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>
-        <text class="node-lbl" x="${r1(x)}" y="${PAD_T + HEAD_H / 2}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="${st.text}">${esc(name(p))}</text>`;
+      shape = `<rect class="nshape" x="${r1(x - w / 2)}" y="${PAD_T}" width="${r1(w)}" height="${HEAD_H}" rx="4" fill="${pst.bg}" stroke="${pst.border}" stroke-width="2"/>
+        <text class="node-lbl" x="${r1(x)}" y="${PAD_T + HEAD_H / 2}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="${pst.text}">${esc(name(p))}</text>`;
     }
     heads += `<g class="reg-node seq-participant" data-cls="${pid}" onclick="event.stopPropagation();window.__openSb('${pid}')">${shape}</g>`;
   });
-  const bars = actBoxes.map(b => `<rect x="${r1(b.x)}" y="${r1(b.y1)}" width="${ACT_W}" height="${r1(Math.max(6, b.y2 - b.y1))}" fill="${st.bg}" stroke="${st.border}" stroke-width="1.5"/>`).join('');
+  const bars = actBoxes.map(b => `<rect x="${r1(b.x)}" y="${r1(b.y1)}" width="${ACT_W}" height="${r1(Math.max(6, b.y2 - b.y1))}" fill="${ast.bg}" stroke="${ast.border}" stroke-width="1.5"/>`).join('');
 
   const dx = PAD_L - minX;
   const W = r1(maxX - minX + PAD_L + PAD_R), H = r1(bottom + PAD_B);
@@ -1088,6 +1118,12 @@ function renderStateGroup(text, scopedPath) {
   if (!all.length) return null;
 
   const th = theme(), st = nodeStyle({}), ec = th.edgeColor0;
+  // Color mode: states, choices, notes and composite states get their own colors;
+  // in monochrome these equal st, or the shared note/group tokens below
+  const color = colorMode === 'color';
+  const sst = nodeStyle({}, 'state'), cst = nodeStyle({}, 'decision');
+  const noteSt = color ? nodeStyle({}, 'note') : { bg: th.subFill, border: th.subStroke };
+  const compSt = color ? nodeStyle({}, 'composite') : { bg: th.subFill, border: th.subStroke };
   const uid = 'st' + Math.random().toString(36).slice(2, 7);
   const rankdir = sd.direction;
   const horizontal = rankdir === 'LR' || rankdir === 'RL';
@@ -1190,18 +1226,18 @@ function renderStateGroup(text, scopedPath) {
       const pid = esc(scopedPath + '/' + s.id);
       let body;
       if (s.kind === 'choice') {
-        body = `<polygon class="nshape" points="${r1(p.x)},${r1(y)} ${r1(x + w)},${r1(p.y)} ${r1(p.x)},${r1(y + h)} ${r1(x)},${r1(p.y)}" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>`;
+        body = `<polygon class="nshape" points="${r1(p.x)},${r1(y)} ${r1(x + w)},${r1(p.y)} ${r1(p.x)},${r1(y + h)} ${r1(x)},${r1(p.y)}" fill="${cst.bg}" stroke="${cst.border}" stroke-width="2"/>`;
       } else if (s.composite) {
         const sub = inner[s.id];
-        body = `<rect class="nshape" x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="10" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="2"/>`;
-        body += `<path d="M${r1(x)},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${th.subStroke}" stroke-width="1"/>`;
+        body = `<rect class="nshape" x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="10" fill="${compSt.bg}" stroke="${compSt.border}" stroke-width="2"/>`;
+        body += `<path d="M${r1(x)},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${compSt.border}" stroke-width="1"/>`;
         body += txt(p.x, y + HEAD_H / 2, name(s), 'class="node-lbl" font-size="12" font-weight="600"');
         body += `<g transform="translate(${r1(p.x - sub.W / 2)},${r1(y + HEAD_H + 4)})">${sub.svg}</g>`;
       } else {
-        body = `<rect class="nshape" x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="10" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>`;
+        body = `<rect class="nshape" x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="10" fill="${sst.bg}" stroke="${sst.border}" stroke-width="2"/>`;
         body += txt(p.x, y + HEAD_H / 2, name(s), 'class="node-lbl" font-size="12" font-weight="600"');
         if (s.descriptions.length) {
-          body += `<path d="M${r1(x)},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${st.border}" stroke-width="1"/>`;
+          body += `<path d="M${r1(x)},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${sst.border}" stroke-width="1"/>`;
           s.descriptions.forEach((d, i) => { body += txt(p.x, y + HEAD_H + 3 + ROW_H * i + ROW_H / 2, d, 'font-size="11" opacity="0.75"'); });
         }
       }
@@ -1212,7 +1248,7 @@ function renderStateGroup(text, scopedPath) {
       const b = g.node('__note' + i);
       if (!b) return;
       const { lines, width: w, height: h } = noteDims[i];
-      svg += `<rect x="${r1(b.x - w / 2)}" y="${r1(b.y - h / 2)}" width="${w}" height="${h}" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1" stroke-dasharray="4,3"/>`;
+      svg += `<rect x="${r1(b.x - w / 2)}" y="${r1(b.y - h / 2)}" width="${w}" height="${h}" rx="3" fill="${noteSt.bg}" stroke="${noteSt.border}" stroke-width="1" stroke-dasharray="4,3"/>`;
       lines.forEach((l, j) => { svg += txt(b.x, b.y - h / 2 + 5 + ROW_H * j + ROW_H / 2, l, 'font-size="11"'); });
     });
 
@@ -2070,6 +2106,7 @@ async function loadSubNodeData(perspective, subPath, shortName) {
 async function init() {
   applyTheme();
   applyClean();
+  applyColorMode();
   classes = await api('/api/classes');
   if (!classes.length) {
     canvasEl.innerHTML=`<div class="empty-state" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)"><p>No perspectives found.<br>Run <code>/omm-scan</code> in Claude Code.</p></div>`;

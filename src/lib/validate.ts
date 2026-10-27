@@ -9,13 +9,16 @@ import type { ValidationIssue, ValidationResult } from '../types.js';
 
 // --- Source-of-truth constants ---
 
-export const VALID_CLASSDEF_NAMES = ['external', 'concern', 'entry', 'store'] as const;
+export const VALID_CLASSDEF_NAMES = ['external', 'concern', 'entry', 'store', 'error', 'success'] as const;
 
 export const CLASSDEF_PALETTE: Record<string, Record<string, string>> = {
   external: { fill: '#585b70', stroke: '#585b70', color: '#cdd6f4' },
   concern:  { fill: '#f38ba8', stroke: '#f38ba8', color: '#1e1e2e' },
   entry:    { fill: '#89b4fa', stroke: '#89b4fa', color: '#1e1e2e' },
   store:    { fill: '#a6e3a1', stroke: '#a6e3a1', color: '#1e1e2e' },
+  // process flowcharts: failed / successful outcomes (same as the viewer's light color mode)
+  error:    { fill: '#fde8e8', stroke: '#c0392b', color: '#7a1d1d' },
+  success:  { fill: '#e3f5e8', stroke: '#23804a', color: '#14532d' },
 };
 
 // --- Helpers ---
