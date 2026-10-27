@@ -5,17 +5,22 @@ import { parseErDiagram } from './er.js';
 import { parseSequenceDiagram } from './sequence.js';
 import { parseStateDiagram, stateDisplayId } from './state.js';
 import { parseFlowchart, type FlowShape } from './flowchart.js';
+import { findSecrets } from './secrets.js';
+import { parseArchitectureDiagram } from './architecture.js';
 import type { ValidationIssue, ValidationResult } from '../types.js';
 
 // --- Source-of-truth constants ---
 
-export const VALID_CLASSDEF_NAMES = ['external', 'concern', 'entry', 'store'] as const;
+export const VALID_CLASSDEF_NAMES = ['external', 'concern', 'entry', 'store', 'error', 'success'] as const;
 
 export const CLASSDEF_PALETTE: Record<string, Record<string, string>> = {
   external: { fill: '#585b70', stroke: '#585b70', color: '#cdd6f4' },
   concern:  { fill: '#f38ba8', stroke: '#f38ba8', color: '#1e1e2e' },
   entry:    { fill: '#89b4fa', stroke: '#89b4fa', color: '#1e1e2e' },
   store:    { fill: '#a6e3a1', stroke: '#a6e3a1', color: '#1e1e2e' },
+  // process flowcharts: failed / successful outcomes (same as the viewer's light color mode)
+  error:    { fill: '#fde8e8', stroke: '#c0392b', color: '#7a1d1d' },
+  success:  { fill: '#e3f5e8', stroke: '#23804a', color: '#14532d' },
 };
 
 // --- Helpers ---
@@ -275,6 +280,35 @@ function checkStateDiagram(text: string, issues: ValidationIssue[]): void {
   }
 }
 
+function checkArchitectureDiagram(text: string, issues: ValidationIssue[]): void {
+  const arch = parseArchitectureDiagram(text);
+
+  // Rule: arch-syntax — anything the parser could not read
+  for (const error of arch.errors) {
+    issues.push({ level: 'error', rule: 'arch-syntax', message: error.message, line: error.line });
+  }
+
+  // Rule: arch-orphan — a service with no connection
+  const connected = new Set(arch.edges.flatMap(e => [e.from, e.to]));
+  if (arch.services.size > 1) {
+    for (const s of arch.services.values()) {
+      if (!connected.has(s.id)) issues.push({ level: 'warning', rule: 'arch-orphan', message: `Service ${s.id} has no connections`, line: s.line });
+    }
+  }
+
+  // Rule: arch-edge-label — say what travels over a connection (protocol or purpose)
+  for (const e of arch.edges) {
+    if (!e.title && !arch.junctions.has(e.from) && !arch.junctions.has(e.to)) {
+      issues.push({
+        level: 'warning',
+        rule: 'arch-edge-label',
+        message: `Connection without label (e.g. -[HTTPS]->): ${e.from} -- ${e.to}`,
+        line: e.line,
+      });
+    }
+  }
+}
+
 // --- Main validation function ---
 
 export interface ValidateContext {
@@ -292,8 +326,15 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     checkSequenceDiagram(text, issues);
   } else if (type === 'state') {
     checkStateDiagram(text, issues);
+  } else if (type === 'architecture') {
+    checkArchitectureDiagram(text, issues);
   } else {
     checkFlowchart(text, type, issues);
+  }
+
+  // Rule: secret-value — keys, tokens and passwords never belong in .omm/
+  for (const s of findSecrets(text)) {
+    issues.push({ level: 'error', rule: 'secret-value', message: `Looks like a ${s.kind}. Remove it: describe where the secret is used, not its value.`, line: s.line });
   }
 
   // Rule: ref-exists, ref-self and ref-ancestor (only when context provided).
@@ -323,10 +364,12 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     }
   }
 
-  // Rule: node-count (uses parseMermaid for counting only; entities for ER, participants for sequence, states for state diagrams)
+  // Rule: node-count (uses parseMermaid for counting only; entities for ER, participants for sequence, states for
+  // state diagrams; services and junctions for architecture diagrams, where groups only contain them)
   const parsed = parseMermaid(text);
-  const nodeCount = parsed.nodes.size;
-  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : type === 'state' ? 'states' : 'nodes';
+  const arch = type === 'architecture' ? parseArchitectureDiagram(text) : null;
+  const nodeCount = arch ? arch.services.size + arch.junctions.size : parsed.nodes.size;
+  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : type === 'state' ? 'states' : arch ? 'services and junctions' : 'nodes';
   if (nodeCount > 0 && nodeCount < 3 && (type === 'flowchart' || type === 'unknown')) {
     issues.push({
       level: 'warning',

@@ -53,7 +53,7 @@ Claude Code'da yetenek `/oh-my-mermaid:omm-scan` olarak görünür. Tarama, belg
 omm view
 ```
 
-Ardından http://localhost:3000 adresini açın. Başka bir port için `--port <n>` kullanın. Görüntüleyici yalnızca kendi bilgisayarınızdan gelen bağlantıları kabul eder ve `.omm/` değiştikçe canlı olarak güncellenir. Araç çubuğunda **clean** dosya yollarını gizler, **svg** / **png** ise seçili diyagramı indirir; örneğin bir müşteri sunumuna eklemek için.
+Ardından http://localhost:3000 adresini açın. Başka bir port için `--port <n>` kullanın. Görüntüleyici yalnızca kendi bilgisayarınızdan gelen bağlantıları kabul eder ve `.omm/` değiştikçe canlı olarak güncellenir. Araç çubuğunda **clean** dosya yollarını gizler, **svg** / **png** ise seçili diyagramı indirir; örneğin bir müşteri sunumuna eklemek için. **mono | color** siyah-beyaz görünüm ile her öğenin ne olduğunu gösteren renkler (başlangıç/bitiş, karar, veri deposu …) arasında geçiş yapar. **flow**, veri veya işin taşındığı oklar boyunca hareket eden küçük bir dosya simgesi göstererek bir sürecin nasıl işlediğini anlatmayı kolaylaştırır.
 
 ## Örnek
 
@@ -91,7 +91,7 @@ Görüntüleyici, bu iç içe yapıyı dosya sistemine bakarak otomatik algılar
 
 Her element en fazla 7 alan taşıyabilir: `description`, `diagram`, `context`, `constraint`, `concern`, `todo`, `note`.
 
-Diyagramlar akış şemaları (`graph` / `flowchart`), veritabanı şemaları gibi veri modelleri için ER diyagramları (`erDiagram`) bir istek ya da protokoldeki çağrı sırası için sıra diyagramları (`sequenceDiagram`) veya yaşam döngüleri ve durum makineleri için durum diyagramlarıdır (`stateDiagram-v2`). Dördü de `omm validate` ile doğrulanır ve görüntüleyicide çizilir. Akış şemaları teknik olmayan okuyucular için süreç diyagramı olarak da kullanılabilir: başlangıç/bitiş, adımlar, evet/hayır kararları, girdi/çıktı, belgeler, alt süreçler ve her rol için bir şerit (`subgraph`).
+Diyagramlar akış şemaları (`graph` / `flowchart`), veritabanı şemaları gibi veri modelleri için ER diyagramları (`erDiagram`) bir istek ya da protokoldeki çağrı sırası için sıra diyagramları (`sequenceDiagram`) yaşam döngüleri ve durum makineleri için durum diyagramları (`stateDiagram-v2`) veya dağıtım için mimari diyagramlarıdır (`architecture-beta`): her parçanın nerede çalıştığı ve çalışan parçaların nasıl bağlandığı. Beşi de `omm validate` ile doğrulanır ve görüntüleyicide çizilir. Akış şemaları teknik olmayan okuyucular için süreç diyagramı olarak da kullanılabilir: başlangıç/bitiş, adımlar, evet/hayır kararları, girdi/çıktı, belgeler, alt süreçler ve her rol için bir şerit (`subgraph`). `deployment` perspektifi için `/omm-scan` önce `omm evidence deployment` komutunu çalıştırır; bu komut projedeki Docker, Kubernetes, Terraform, CI ve barındırma dosyalarını ve içlerindeki bilgileri listeler, gizli değerleri asla göstermez. Böyle dosyaları olmayan projeler için dağıtım diyagramı oluşturulmaz.
 
 ## CLI
 

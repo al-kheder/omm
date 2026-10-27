@@ -61,6 +61,7 @@ From the catalog below, choose which perspectives are meaningful for this codeba
 | `orchestration` | Event-driven/queue systems | Publisher, subscriber, broker topology |
 | `storage` | 2+ storage systems | Storage topology (DB, cache, queue, object store) |
 | `data-model` | Database schema, ORM models, persisted file formats | What data exists and how entities relate. Uses an **ER diagram**; see "ER Diagram Rules" |
+| `deployment` | `omm evidence deployment` finds deployment files (Docker, Compose, Kubernetes, Helm, Terraform, serverless, hosting platforms, deploy jobs) or a published package | Where each part runs and how the running parts connect. Uses an **architecture diagram**; see "Deployment Diagram Rules" |
 | `business-processes` | User-facing or business workflows in the code (checkout, sign-up, approval, refund, onboarding) | What happens step by step, who does each step and where the process branches. Uses a **process flowchart**; see "Process Flowchart Rules" |
 
 Don't force perspectives that don't exist in the code.
@@ -158,6 +159,16 @@ Report what was created/updated and suggest `omm view` to view.
   ```
 
 - Every edge must have a meaningful label: `A -->|"why this connection exists"| B`
+- **Mark edges that carry something.** When an edge stands for data, files, requests, messages or events moving from A to B (`"upload file"`, `"POST /orders"`, `"publish order.created"`), give it an ID and mark it as animated. The viewer's **flow** button then shows a file icon moving along it:
+
+  ```text
+  web e1@-->|"upload file"| api
+  api e2@-->|"store file"| files
+  e1@{ animate: true }
+  e2@{ animate: true }
+  ```
+
+  Do not mark dependencies that do not move anything: `imports`, `implements`, `extends`, `aggregates`, `re-exports`, `configures`. Use `animation: slow` for batch or scheduled transfers. Edge IDs must be unique within the diagram.
 - **Cross-references** link to an element documented elsewhere. Put `@` plus the element path at the start of the label:
   - `@data-flow` points to a perspective.
   - `@overall-architecture/server` points to a nested element.
@@ -177,12 +188,16 @@ Report what was created/updated and suggest `omm view` to view.
   | `concern` | `#f38ba8` | Known risk or bottleneck |
   | `entry` | `#89b4fa` | Entry points (HTTP handler, CLI, queue consumer) |
   | `store` | `#a6e3a1` | Persistent storage (DB, cache, file system) |
+  | `error` | `#c0392b` | Process flowcharts: a failed or rejected outcome |
+  | `success` | `#23804a` | Process flowcharts: a successful outcome |
 
   ```text
   classDef external fill:#585b70,stroke:#585b70,color:#cdd6f4
   classDef concern fill:#f38ba8,stroke:#f38ba8,color:#1e1e2e
   classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
   classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+  classDef error fill:#fde8e8,stroke:#c0392b,color:#7a1d1d
+  classDef success fill:#e3f5e8,stroke:#23804a,color:#14532d
   ```
 
 ## ER Diagram Rules
@@ -342,6 +357,79 @@ MERMAID
 - Keep 3–15 states per diagram. Move the details of a busy state into a composite state or its own child element.
 - Run `omm validate` afterwards. It reports syntax errors with line numbers (unclosed `{`, invalid arrows), states without transitions and transitions without a trigger.
 
+## Deployment Diagram Rules
+
+The `deployment` perspective shows the **runtime**: where each part of the software runs and how the running parts talk to each other. It is not another code-structure diagram. Every element must come from a file in the repository.
+
+**1. Collect the evidence first**
+
+```bash
+omm evidence deployment          # readable summary
+omm evidence deployment --json   # all facts, for detail
+```
+
+- If it says **"No deployment evidence found"**, do not create a `deployment` perspective. Say so in the summary (Step 4).
+- Otherwise open the listed files where you need more detail.
+  - Never open `.env` files.
+  - Never copy values from environment variables, Secrets or config files: no passwords, tokens, keys or connection strings.
+  - Write where a value comes from instead ("reads `DATABASE_URL` from the environment").
+
+**2. Write an `architecture-beta` diagram**
+
+```mermaid
+architecture-beta
+  %% @overall-architecture/server
+  service browser(internet)[User browser]
+  group cloud(cloud)[AWS account]
+  group private(cloud)[Private subnet] in cloud
+  group cluster(server)[ECS cluster] in private
+  service api(server)["API service\nserver/"] in cluster
+  service db(database)[PostgreSQL 16] in private
+  service mail(internet)[Mail provider]
+  browser:R -[HTTPS 443]-> L:api
+  api:R -[SQL 5432]-> L:db
+  api{group}:B -[SMTP]-> T:mail
+```
+
+| Concept | Write it as | Evidence |
+|---|---|---|
+| Where software runs: cloud account, network zone, cluster, host, container | `group id(icon)[Title] in parent`, nested from outside in | Terraform resources, Kubernetes namespaces, Compose networks, platform files |
+| What runs there: container, process, function, static site, database, queue, bucket | `service id(icon)[Title] in group` | Dockerfile/Compose services, Kubernetes workloads, serverless functions, Procfile, Helm charts |
+| Clients and third parties | `service id(internet)[…]` outside every group | Ingress hosts, proxy `server_name`, outbound integrations in code |
+| Runtime connection | `a:R -[label]-> L:b`, with the arrow pointing from the side that starts the connection | Ingress routes, `proxy_pass`, `depends_on`, Service selectors, client code |
+
+**Icons**
+- `server`: an app, container or process.
+- `database`: a database.
+- `disk`: a volume or bucket.
+- `cloud`: a cloud account or managed service.
+- `internet`: browsers, public clients and third parties.
+- Other icon names are allowed but are drawn as a plain tile.
+
+**Rules**
+- **IDs:**
+  - Service IDs are kebab-case or camelCase and become child elements, like nodes in other perspectives. Write a `description` for each one: what it is and which files define it.
+  - Groups are not elements.
+  - Declare every group and service before an edge uses it.
+- **Edges:**
+  - Edges connect services (or junctions), never groups. Use `service{group}` to start or end at a group's border.
+  - Label every connection with the protocol and port when a file states them (`-[HTTPS 443]->`, `-[SQL 5432]->`, `-[AMQP]->`). Otherwise label it with its purpose (`-[enqueue order]->`). Never invent a protocol, port, host name or region.
+  - Use one-way arrows (`-->`) for requests and messages. The viewer's **flow** button moves a file icon along them.
+- **Unverified connections:** when no file states a connection but the code strongly suggests it, end the label with `(unverified)`, as in `-[calls (unverified)]->`, and list it in `note`. Leave out what you can't support at all.
+- **Environments:**
+  - Draw what one environment really looks like. If files describe several environments with different setups (for example Compose for development and Kubernetes for production), put each in its own top-level group, or make each environment a service with its own child diagram.
+  - Never invent an environment. In `note`, list the environments that have no evidence ("staging: no files").
+- **Fields:**
+  - `context`: the evidence used, one bullet per file (`docker-compose.yml: services api, db`).
+  - `note`: unverified connections, ambiguous mappings, missing environments, and anything `omm evidence` warned about.
+- **Links to other perspectives:**
+  - Add a `%% @perspective/element` comment line for a deployed service only when its build source (a Compose `build:` context, the Dockerfile's folder or a function handler path) matches exactly one element's documented path.
+  - Similar names are not enough; list such ambiguous cases in `note`.
+  - Use the comment form, not a node label `@…`, so the deployment view doesn't embed that element's diagram.
+- **Size:** keep 5–15 services. For large clusters, make a service per namespace or subsystem and give it its own child diagram.
+- **A published package or CLI** (only `package.json` commands and a publish job) is still deployment: show where it is published, where it is installed and what it starts on the user's machine.
+- Run `omm validate deployment` afterwards. It reports syntax errors with line numbers, services without connections and connections without a label.
+
 ## Process Flowchart Rules
 
 Use a **process flowchart** when the element is about **a workflow someone could follow from start to finish**, often for readers who do not know the code (clients, managers, support staff):
@@ -393,6 +481,7 @@ MERMAID
 
 - Write steps as short actions in plain words: "Approve the refund", not `RefundService.approve()`. No file paths, class names or jargon.
 - Write decisions as yes/no questions ("Within 30 days?") and label **every** answer leaving them: `check -->|Yes| approve`. Use more than two answers when the process has them.
+- Mark failed or rejected outcomes with `:::error` and successful ones with `:::success` (`refuse[Explain why it is refused]:::error`). In the viewer's color mode they are drawn red and green; the label must still say what happened, since not every reader sees color.
 - Start with one `([Start])` node and end every path at an `([End])` node. A loop goes back to an earlier step with a labelled answer (`more -->|Yes| next-item`).
 - Use one `subgraph id [Role]` lane per person, team or system when more than one is involved. Each node belongs to the lane it first appears in.
 - Keep 5–15 steps. Move a long part into a `[[subprocess]]` and document it as a child element with its own process flowchart (its ID must match the child directory).
@@ -400,10 +489,11 @@ MERMAID
 - Labels are one line (use `<br>` for a deliberate line break; long labels wrap automatically). Do not add the `\n` file-path line used in architecture diagrams.
 - Run `omm validate` afterwards. In a flowchart with a start or end node, it only asks for labels on decision branches, and warns about a decision with fewer than two ways out.
 
-To present a flowchart, open it with `omm view`, click **clean** (hides file paths), select the perspective and click **png** or **svg**. The ○ button switches to the light theme, which usually suits slides better.
+To present a flowchart, open it with `omm view`, click **color** (colors by meaning) and **clean** (hides file paths), select the perspective and click **png** or **svg**. The ○ button switches to the light theme, which usually suits slides better. When presenting live, **flow** shows a file icon moving along every arrow of a process flowchart; no `animate` marks are needed there. To keep one arrow still, give it an ID and `animate: false`.
 
 ## General Rules
 
 - **Write each field as a separate `omm write` command.** Each `omm write` must be its own Bash tool call.
 - Do not rewrite elements that haven't changed.
 - Do not create circular references. A child element must never reference its parent.
+- **Never copy secrets into `.omm/`.** No passwords, tokens, keys, connection strings with credentials or values from `.env` files, in any field. Write where a secret comes from instead ("reads `DB_PASSWORD` from the environment"). `omm write` warns and `omm validate` reports an error (`secret-value`) when something looks like a secret; if that happens, rewrite the field without it.

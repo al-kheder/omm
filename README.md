@@ -51,7 +51,7 @@ In Claude Code the skill appears as `/oh-my-mermaid:omm-scan`. The scan writes t
 omm view
 ```
 
-Then open http://localhost:3000. Use `--port <n>` to pick another port. The viewer only accepts connections from your own machine and updates live as `.omm/` changes. In the toolbar, **clean** hides file paths, and **svg** / **png** download the selected diagram, for example to put in slides for a client.
+Then open http://localhost:3000. Use `--port <n>` to pick another port. The viewer only accepts connections from your own machine and updates live as `.omm/` changes. In the toolbar, **clean** hides file paths, and **svg** / **png** download the selected diagram, for example to put in slides for a client. **mono | color** switches between the black-and-white look and colors that show what each element is (start/end, decision, data store …). **flow** shows a small file icon moving along the arrows that carry data or work, to show how a process runs.
 
 ## Example
 
@@ -89,7 +89,7 @@ The viewer auto-detects nesting from the filesystem — elements with children r
 
 Each element carries up to 7 fields: `description`, `diagram`, `context`, `constraint`, `concern`, `todo`, `note`.
 
-Diagrams are flowcharts (`graph` / `flowchart`), ER diagrams (`erDiagram`) for data models such as database schemas, sequence diagrams (`sequenceDiagram`) for the order of calls in a request or protocol, or state diagrams (`stateDiagram-v2`) for lifecycles and state machines. All four are validated by `omm validate` and rendered by the viewer. Flowcharts also work as process diagrams for non-technical readers: start/end, steps, yes/no decisions, input/output, documents, subprocesses and one lane per role (`subgraph`).
+Diagrams are flowcharts (`graph` / `flowchart`), ER diagrams (`erDiagram`) for data models such as database schemas, sequence diagrams (`sequenceDiagram`) for the order of calls in a request or protocol, state diagrams (`stateDiagram-v2`) for lifecycles and state machines, or architecture diagrams (`architecture-beta`) for deployment: where each part runs and how the running parts connect. All five are validated by `omm validate` and rendered by the viewer. Flowcharts also work as process diagrams for non-technical readers: start/end, steps, yes/no decisions, input/output, documents, subprocesses and one lane per role (`subgraph`). For the `deployment` perspective, `/omm-scan` first runs `omm evidence deployment`, which lists the Docker, Kubernetes, Terraform, CI and hosting files in the project and the facts in them, without ever showing secrets. Projects without such files get no deployment diagram.
 
 ## CLI
 

@@ -53,7 +53,7 @@ npm install -g github:al-kheder/omm && omm setup
 omm view
 ```
 
-然后打开 http://localhost:3000。使用 `--port <n>` 指定其他端口。查看器只接受来自本机的连接，并在 `.omm/` 变化时实时更新。工具栏中的 **clean** 可隐藏文件路径，**svg** / **png** 可下载所选图表，例如放进给客户的幻灯片中。
+然后打开 http://localhost:3000。使用 `--port <n>` 指定其他端口。查看器只接受来自本机的连接，并在 `.omm/` 变化时实时更新。工具栏中的 **clean** 可隐藏文件路径，**svg** / **png** 可下载所选图表，例如放进给客户的幻灯片中。**mono | color** 可在黑白显示和按元素类型（开始/结束、判断、数据存储等）着色的显示之间切换。**flow** 会让一个小文件图标沿着传递数据或工作的箭头移动，便于演示流程如何运行。
 
 ## 示例
 
@@ -91,7 +91,7 @@ AI 分析代码库并生成 **视角（perspective）** — 观察架构的不�
 
 每个元素最多包含 7 个字段：`description`、`diagram`、`context`、`constraint`、`concern`、`todo`、`note`。
 
-图表可以是流程图（`graph` / `flowchart`）、用于数据库结构等数据模型的 ER 图（`erDiagram`），用于表示请求或协议中调用顺序的时序图（`sequenceDiagram`），或用于生命周期和状态机的状态图（`stateDiagram-v2`）。四者都由 `omm validate` 校验，并在查看器中渲染。流程图也可用作面向非技术读者的业务流程图：开始/结束、步骤、是/否判断、输入/输出、文档、子流程，以及每个角色一条泳道（`subgraph`）。
+图表可以是流程图（`graph` / `flowchart`）、用于数据库结构等数据模型的 ER 图（`erDiagram`），用于表示请求或协议中调用顺序的时序图（`sequenceDiagram`）、用于生命周期和状态机的状态图（`stateDiagram-v2`），或用于部署的架构图（`architecture-beta`：每个部分运行在哪里，以及运行中的部分如何连接）。五者都由 `omm validate` 校验，并在查看器中渲染。流程图也可用作面向非技术读者的业务流程图：开始/结束、步骤、是/否判断、输入/输出、文档、子流程，以及每个角色一条泳道（`subgraph`）。生成 `deployment` 视角时，`/omm-scan` 会先运行 `omm evidence deployment`，列出项目中的 Docker、Kubernetes、Terraform、CI 和托管配置文件及其中的信息，且从不显示密钥。没有这类文件的项目不会生成部署图。
 
 ## CLI
 

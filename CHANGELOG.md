@@ -8,6 +8,14 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 - **The viewer reads flowcharts with the same parser as `omm validate` and `omm diff`** (`src/lib/flowchart.ts`). Before, it dropped edges written as `A -- Yes --> B`, the rest of chains (`a --> b --> c`) and `&` groups, nodes with `[/ /]` or `[[ ]]` shapes, and showed brackets in `([Start])` labels. Edge labels no longer show their quotes. Existing architecture diagrams look the same otherwise.
 - **`balanced-brackets`** no longer reports the flag shape `id>text]`.
+- **Easier-to-follow edges** in the viewer:
+  - Edges in the light theme are darker (`#64748b`) and now have at least 3:1 contrast with the background. The dark theme is unchanged.
+  - Arrowheads are larger and the same size in flowcharts, sequence and state diagrams.
+  - Edge labels, ER cardinalities and state triggers are drawn after all lines, so no line runs over them.
+  - Hovering an element highlights its edges in the light theme too. Before, the highlight was white.
+  - In a compact fan-out grid, edges end on the element's border instead of under it, and edges that would cross another element run along the gap between columns.
+  - Several edges without labels between the same two elements are spread apart, and two-point edges bend in the layout's direction.
+- **Sequence diagrams** no longer write duplicate SVG attributes. This made SVG/PNG export of sequence diagrams fail, and drew `autonumber` digits in the wrong size and color.
 - **Development uses pnpm** (pinned to `pnpm@10.34.6` via `packageManager`). Run `corepack enable`, then `pnpm install`.
   - `pnpm-lock.yaml` replaces `package-lock.json`. It was converted with `pnpm import`, so every dependency version is unchanged.
   - CI and the release workflow use pnpm.
@@ -16,6 +24,64 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **`deployment` perspective** in `/omm-scan`: where each part runs and how the running parts connect, drawn as an architecture diagram.
+  - `/omm-scan` runs `omm evidence deployment` first, and skips the perspective when there is no evidence.
+  - Every group, service and connection must come from a file.
+  - Protocols and ports are written only when a file states them; guessed connections are labelled `(unverified)`.
+  - Environments without evidence are listed, not invented.
+  - The files used are recorded in `context`, and open questions in `note`.
+  - Services link to architecture elements with `%% @…` comments only when their source paths match exactly.
+  - This repository now documents its own deployment (`.omm/deployment`).
+- **`node-count`** counts services and junctions in architecture diagrams, not the groups that contain them.
+- **`omm evidence deployment [--json]`** lists the files that say how and where a project is deployed, with the facts read from them:
+  - Dockerfiles (stages, exposed ports, command);
+  - Docker Compose services (image or build, ports, `depends_on`, networks, replicas, environment *keys*);
+  - Kubernetes objects (workloads with images and ports, Services, Ingress routes, CronJobs);
+  - Helm charts, Terraform resources and modules, serverless functions, Procfile processes;
+  - hosting platform files (Vercel, Netlify, Fly.io, Render, Cloudflare, App Engine …);
+  - nginx and Caddy sites and upstreams;
+  - CI/CD deploy jobs with their environment and tools;
+  - packages with commands to install.
+
+  Environment names (development, staging, production …) are gathered from file names, folders, namespaces and CI environments. Routes and selectors that lead nowhere are reported, and so are files that cannot be parsed.
+
+  **Safety:**
+  - `.env` files are listed but never opened;
+  - ConfigMaps, Secrets and environment variables contribute names only;
+  - anything that still looks like a secret is shown as `[redacted]`;
+  - symlinks and dependency folders are skipped.
+- **Architecture diagrams (`architecture-beta`)** for deployment: where software runs and how the running parts connect.
+  - **Parsing:**
+    - groups (cloud accounts, networks, hosts, containers), nested with `in`;
+    - services with icons;
+    - junctions;
+    - connections with sides (`a:R --> L:b`), arrowheads, titles (`-[HTTPS]->`) and `{group}` ends;
+    - `align`, `title` and accessibility lines.
+  - **`omm validate`:** reports syntax errors with line numbers (`arch-syntax`), and warns about services without connections (`arch-orphan`) and connections without a label (`arch-edge-label`).
+  - **`omm diff`:** reports added and removed groups, services and connections.
+  - **Viewer:**
+    - groups are drawn as nested dashed boxes and services as boxes with an icon;
+    - connections show their labels;
+    - **color** marks data stores and the internet, and **flow** moves an icon along every one-way connection.
+  - A `%% @perspective/element` comment links the diagram to another element without drawing it.
+- **Secret check.** `omm validate` reports an error (`secret-value`) when a diagram contains something that looks like a secret:
+  - private keys;
+  - AWS, GitHub, Slack, Google, Stripe and `sk-` API keys;
+  - JSON Web Tokens;
+  - passwords in URLs;
+  - random-looking values assigned to `password`, `secret`, `api_key` and similar.
+  `omm write` prints the same warning for any field, but still saves it. References such as `${DB_PASSWORD}`, placeholders and ordinary prose are not reported, and the matched value is never printed. `/omm-scan` now says never to copy secrets into `.omm/`.
+- **Flow motion** for explaining how data or work moves. The new **flow** button in the viewer toolbar shows a small file icon travelling along the arrows that carry something:
+  - every one-way arrow of a process flowchart;
+  - every message of a sequence diagram, one after another in order;
+  - architecture edges marked `e1@{ animate: true }`.
+  Dependencies ("implements", "imports"), state and ER diagrams stay still. The icon follows the drawn line from source to target, passes under labels and elements, and stops before the arrowhead. Flow is off by default and remembered per browser. It stays off when the system asks for reduced motion, and downloads never include it. `/omm-scan` now marks the architecture edges that carry data.
+- **Edge IDs and edge animation settings** in flowcharts, written the Mermaid way: `a e1@--> b`, then `e1@{ animate: true }` (or `animation: fast` / `slow`, or `animate: false`). `omm validate` accepts them and reports settings for an edge ID that does not exist. `omm diff` ignores the IDs.
+- **Color mode** for every diagram type. The new **mono | color** switch in the viewer toolbar changes between the original black-and-white look (still the default) and colors that show what each element is. The choice is remembered per browser, works with both themes and is used by SVG/PNG export.
+  - **Flowcharts:** start/end green, steps blue (in process flowcharts), decisions amber, input/output teal, documents violet, subprocesses indigo, data stores slate; the omm categories `entry` (blue), `store` (green), `external` (grey) and `concern` (pink). Plain architecture nodes, edges and lanes stay neutral.
+  - **ER:** entity headers blue; key badges unchanged. **Sequence:** participants and activation bars blue, notes yellow. **State:** states blue, choices amber, notes yellow; start/end markers stay black/white as in UML.
+  - Shapes and labels are unchanged, so nothing depends on color alone. Text has at least 4.5:1 contrast on its fill and outlines at least 3:1 against the background (tested for both themes).
+  - New category classes `error` and `success` for failed and successful outcomes in process flowcharts; `omm validate` accepts them.
 - **Process flowcharts** for explaining workflows to people who do not know the code.
   - **Symbols:** start/end `([ ])`, step `[ ]`, decision `{ }`, input/output `[/ /]`, document `@{ shape: doc }`, subprocess `[[ ]]`, connector `(( ))`, stored data `[( )]`, plus hexagon, trapezoid and flag shapes.
   - **Lanes:** `subgraph id [Role] … end` is drawn as a labelled lane, so a diagram can show who does each step.

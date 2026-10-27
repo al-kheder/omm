@@ -14,6 +14,7 @@ import {
   writeNodeField,
   parseElementPath,
 } from '../lib/store.js';
+import { findSecrets } from '../lib/secrets.js';
 import type { Field } from '../types.js';
 
 function parsePath(targetPath: string): { perspective: string; nodePath: string[] } {
@@ -69,6 +70,11 @@ export async function commandWrite(targetPath?: string, field?: string, contentA
     content = Buffer.concat(chunks).toString('utf-8');
   } else {
     content = args.join(' ');
+  }
+
+  // Saved anyway (the writer decides), but say so: secrets must not end up in .omm/
+  for (const s of findSecrets(content)) {
+    process.stderr.write(`warning: ${targetPath} ${field} line ${s.line} looks like a ${s.kind}. Remove it: describe where the secret is used, not its value.\n`);
   }
 
   const { perspective, nodePath } = parsePath(targetPath);
