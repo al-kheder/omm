@@ -53,7 +53,7 @@ From the catalog below, choose which perspectives are meaningful for this codeba
 | `data-flow` | Any data processing, DB usage | Where data comes from, transforms, and lands |
 | `dependency-map` | Complex module graph | What depends on what, what's shared |
 | `external-integrations` | External APIs/services | What the system connects to and why |
-| `state-transitions` | Stateful features (frontend or backend) | How state changes and what triggers it |
+| `state-transitions` | Stateful features (frontend or backend) | How state changes and what triggers it. Uses a **state diagram**; see "State Diagram Rules" |
 | `route-page-map` | Frontend with routing | Page structure and navigation flow |
 | `command-surface` | CLI tools | Command hierarchy and dispatch |
 | `extension-points` | Plugin/extension systems | Extension architecture and registry |
@@ -295,6 +295,51 @@ Write each message as `A <arrow> B: text`. The text is required: name the real c
 
 - Keep it to about 3–8 participants and at most 30 messages. Split long flows into one diagram per scenario (for example `request-lifecycle/login`, `request-lifecycle/checkout`).
 - Run `omm validate` afterwards. It reports sequence syntax errors with line numbers (unclosed blocks, `else` outside `alt`, messages without text) and participants without messages.
+
+## State Diagram Rules
+
+Use a `stateDiagram-v2` when the element is about **the states something can be in** and what moves it between them:
+
+- an order, payment or job status field
+- a connection or session lifecycle
+- a UI flow driven by a state machine or reducer
+
+```bash
+omm write state-transitions/order diagram - <<'MERMAID'
+stateDiagram-v2
+    [*] --> draft
+    draft --> submitted : submit
+    submitted --> check
+    state check <<choice>>
+    check --> paid : payment ok
+    check --> failed : payment declined
+    failed --> draft : retry
+    state paid {
+        [*] --> packing
+        packing --> shipped : hand to carrier
+    }
+    paid --> delivered : delivered
+    delivered --> [*]
+MERMAID
+```
+
+**States**
+
+- Name states after the real values in the code (`draft`, `paid`), in kebab-case. Use `state "Label" as id` for a readable name.
+- `[*]` is the start (on the left of `-->`) or the end (on the right). Inside `state x { ... }` it means the start or end of `x`.
+- Use `state x { ... }` for sub-states, and `<<choice>>`, `<<fork>>`, `<<join>>` for decisions and parallel paths.
+- If a state is documented in more detail, its child element directory must have the same id.
+
+**Transitions**
+
+- Write each transition as `a --> b : trigger`. Name the real event, method or action that causes it (`submit`, `onTimeout`, `PAYMENT_FAILED`).
+- Transitions from `[*]`, to `[*]`, out of a `<<choice>>` and into or out of `<<fork>>`/`<<join>>` may leave the trigger out.
+- `note right of x : text` for facts that are not transitions (for example side effects).
+
+**Size and checking**
+
+- Keep 3–15 states per diagram. Move the details of a busy state into a composite state or its own child element.
+- Run `omm validate` afterwards. It reports syntax errors with line numbers (unclosed `{`, invalid arrows), states without transitions and transitions without a trigger.
 
 ## General Rules
 

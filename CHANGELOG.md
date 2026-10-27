@@ -14,6 +14,12 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **State diagrams (`stateDiagram-v2`)** for status fields, lifecycles and state machines.
+  - **Parsing:** states with labels and descriptions, transitions with triggers, `[*]` start and end, composite states, `<<choice>>`/`<<fork>>`/`<<join>>`, notes and `direction`.
+  - **`omm validate`:** reports syntax errors with line numbers (`state-syntax`), and warns about states without transitions (`state-orphan`) and transitions without a trigger (`state-transition-label`).
+  - **`omm diff`:** reports added and removed states and transitions.
+  - **Viewer:** draws states, start and end markers, choices, fork/join bars, notes and composite states as nested boxes. State diagrams can also be nested inside flowcharts.
+  - **`/omm-scan`:** new "State Diagram Rules"; the `state-transitions` perspective uses them.
 - **Sequence diagrams (`sequenceDiagram`)** for request lifecycles, protocols and messages between components.
   - **Parsing:** participants and actors with labels, all message arrows (call, reply, async, failure, both directions), activations (`+`/`-`, `activate`/`deactivate`), notes, `loop`/`alt`/`else`/`opt`/`par`/`critical`/`break`/`rect` blocks, `box` and `autonumber`.
   - **`omm validate`:** reports sequence syntax errors with line numbers (`seq-syntax`), and warns about participants without messages (`seq-unused-participant`), messages without text (`seq-message-label`) and diagrams with more than 30 messages (`message-count`).

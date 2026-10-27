@@ -3,6 +3,7 @@ import { extractRefs } from './refs.js';
 import { detectDiagramType } from './diagram.js';
 import { parseErDiagram } from './er.js';
 import { parseSequenceDiagram } from './sequence.js';
+import { parseStateDiagram, stateDisplayId } from './state.js';
 import type { ValidationIssue, ValidationResult } from '../types.js';
 
 // --- Source-of-truth constants ---
@@ -66,7 +67,7 @@ function checkFlowchart(text: string, issues: ValidationIssue[]): void {
     issues.push({
       level: 'error',
       rule: 'graph-declaration',
-      message: 'Diagram must start with a graph/flowchart direction declaration (e.g., "graph LR"), "erDiagram" or "sequenceDiagram"',
+      message: 'Diagram must start with a graph/flowchart direction declaration (e.g., "graph LR"), "erDiagram", "sequenceDiagram" or "stateDiagram-v2"',
       line: 1,
     });
   }
@@ -198,6 +199,46 @@ function checkSequenceDiagram(text: string, issues: ValidationIssue[]): void {
   }
 }
 
+// --- State diagram rules ---
+
+const PSEUDO_OR_CONTROL = new Set(['start', 'end', 'choice', 'fork', 'join']);
+
+function checkStateDiagram(text: string, issues: ValidationIssue[]): void {
+  const sd = parseStateDiagram(text);
+
+  // Rule: state-syntax — anything the parser could not read
+  for (const error of sd.errors) {
+    issues.push({ level: 'error', rule: 'state-syntax', message: error.message, line: error.line });
+  }
+
+  // Rule: state-orphan — a state with no transitions (a composite state also counts as
+  // connected when one of its children is)
+  const all = [...sd.states.values()];
+  const real = all.filter(s => s.kind !== 'start' && s.kind !== 'end');
+  if (real.length > 1) {
+    const connected = new Set(sd.transitions.flatMap(t => [t.from, t.to]));
+    for (const s of real) {
+      const viaChild = s.composite && all.some(c => c.parent === s.id && connected.has(c.id));
+      if (!connected.has(s.id) && !viaChild) {
+        issues.push({ level: 'warning', rule: 'state-orphan', message: `State ${s.id} has no transitions` });
+      }
+    }
+  }
+
+  // Rule: state-transition-label — a transition between two ordinary states should name its trigger
+  for (const t of sd.transitions) {
+    const ends = [sd.states.get(t.from)?.kind ?? 'state', sd.states.get(t.to)?.kind ?? 'state'];
+    if (!t.label && !ends.some(k => PSEUDO_OR_CONTROL.has(k))) {
+      issues.push({
+        level: 'warning',
+        rule: 'state-transition-label',
+        message: `Transition without trigger: ${stateDisplayId(t.from)} --> ${stateDisplayId(t.to)}`,
+        line: t.line,
+      });
+    }
+  }
+}
+
 // --- Main validation function ---
 
 export interface ValidateContext {
@@ -213,6 +254,8 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     checkErDiagram(text, issues);
   } else if (type === 'sequence') {
     checkSequenceDiagram(text, issues);
+  } else if (type === 'state') {
+    checkStateDiagram(text, issues);
   } else {
     checkFlowchart(text, issues);
   }
@@ -244,11 +287,11 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     }
   }
 
-  // Rule: node-count (uses parseMermaid for counting only; entities for ER, participants for sequence diagrams)
+  // Rule: node-count (uses parseMermaid for counting only; entities for ER, participants for sequence, states for state diagrams)
   const parsed = parseMermaid(text);
   const nodeCount = parsed.nodes.size;
-  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : 'nodes';
-  if (nodeCount > 0 && nodeCount < 3 && type !== 'er' && type !== 'sequence') {
+  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : type === 'state' ? 'states' : 'nodes';
+  if (nodeCount > 0 && nodeCount < 3 && (type === 'flowchart' || type === 'unknown')) {
     issues.push({
       level: 'warning',
       rule: 'node-count',

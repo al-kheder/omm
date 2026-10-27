@@ -472,6 +472,7 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   const diagramType = window.OmmViewer ? OmmViewer.detectDiagramType(data.diagram) : 'flowchart';
   if (diagramType === 'er') return renderErGroup(data.diagram, scopedPath);
   if (diagramType === 'sequence') return renderSeqGroup(data.diagram, scopedPath);
+  if (diagramType === 'state') return renderStateGroup(data.diagram, scopedPath);
 
   const parsed = parseFlowchart(data.diagram);
   const {rankdir, nodes, edges} = parsed;
@@ -998,6 +999,153 @@ function renderSeqGroup(text, scopedPath) {
   const W = r1(maxX - minX + PAD_L + PAD_R), H = r1(bottom + PAD_B);
   const svg = `${defs}<g transform="translate(${r1(dx)},0)">${bands}${lanes}${frames}${bars}${fore}${heads}</g>`;
   return { svgContent: svg, W, H, labelOverlay: '' };
+}
+
+// ── State diagram renderer ────────────────────────────────
+// Each scope (the top level and every composite state) gets its own dagre layout,
+// innermost first; a composite is then placed in its parent as one box. Transitions
+// that cross a composite's border are drawn between the outermost boxes involved.
+function renderStateGroup(text, scopedPath) {
+  const sd = OmmViewer.parseStateDiagram(text);
+  const all = [...sd.states.values()];
+  if (!all.length) return null;
+
+  const th = theme(), st = nodeStyle({}), ec = th.edgeColor0;
+  const uid = 'st' + Math.random().toString(36).slice(2, 7);
+  const rankdir = sd.direction;
+  const horizontal = rankdir === 'LR' || rankdir === 'RL';
+  const HEAD_H = 30, ROW_H = 16, PAD = 16;
+  const headFont = '600 12px Inter,system-ui', rowFont = '11px Inter,system-ui', labelFont = '9px Inter,system-ui';
+  const name = s => s.label || s.id;
+  const scopeOf = s => s.parent || null;
+
+  // Root-first chain of a state's composite ancestors, ending with the state itself
+  const chain = id => {
+    const out = [];
+    for (let s = sd.states.get(id); s; s = s.parent ? sd.states.get(s.parent) : null) out.unshift(s.id);
+    return out;
+  };
+  const lifted = [];
+  for (const t of sd.transitions) {
+    const a = chain(t.from), b = chain(t.to);
+    let k = 0;
+    while (k < a.length - 1 && k < b.length - 1 && a[k] === b[k]) k++;
+    if (a[k] === b[k] && t.from !== t.to) continue; // composite to its own child: nothing sensible to draw
+    lifted.push({ scope: k ? a[k - 1] : null, from: a[k], to: b[k], label: t.label });
+  }
+
+  const marker = `<defs><marker id="${uid}m" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L7,3 L0,6 z" fill="${ec}"/></marker></defs>`;
+  const txt = (x, y, s, extra = '') =>
+    `<text x="${r1(x)}" y="${r1(y)}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui" fill="${st.text}" ${extra}>${esc(s)}</text>`;
+
+  function layoutScope(scope) {
+    const states = all.filter(s => scopeOf(s) === scope);
+    const notes = sd.notes.filter(n => scopeOf(sd.states.get(n.state)) === scope);
+    const inner = {}, dims = {};
+    for (const s of states) {
+      if (s.composite) {
+        const sub = layoutScope(s.id);
+        inner[s.id] = sub;
+        dims[s.id] = { width: Math.max(sub.W + 16, tw(name(s), headFont) + 28), height: sub.H + HEAD_H + 8 };
+      } else if (s.kind === 'start' || s.kind === 'end') {
+        dims[s.id] = { width: 18, height: 18 };
+      } else if (s.kind === 'choice') {
+        dims[s.id] = { width: 28, height: 28 };
+      } else if (s.kind === 'fork' || s.kind === 'join') {
+        dims[s.id] = horizontal ? { width: 8, height: 60 } : { width: 60, height: 8 };
+      } else {
+        const descW = Math.max(0, ...s.descriptions.map(d => tw(d, rowFont)));
+        dims[s.id] = {
+          width: Math.max(80, tw(name(s), headFont) + 28, descW + 20),
+          height: HEAD_H + (s.descriptions.length ? s.descriptions.length * ROW_H + 6 : 0),
+        };
+      }
+    }
+    const noteDims = notes.map(n => {
+      const lines = n.text.split('\n');
+      return { lines, width: Math.max(...lines.map(l => tw(l, rowFont))) + 16, height: lines.length * ROW_H + 10 };
+    });
+
+    const g = new dagre.graphlib.Graph({ multigraph: true });
+    g.setGraph({ rankdir, nodesep: 30, ranksep: 44, marginx: 4, marginy: 4 });
+    g.setDefaultEdgeLabel(() => ({}));
+    for (const s of states) g.setNode(s.id, dims[s.id]);
+    const edges = lifted.filter(e => e.scope === scope);
+    edges.forEach((e, i) => g.setEdge(e.from, e.to, e.label ? { label: e.label, width: tw(e.label, labelFont) + 8, height: 12 } : {}, 'e' + i));
+    // A note sits in the rank next to its state
+    notes.forEach((n, i) => { g.setNode('__note' + i, noteDims[i]); g.setEdge(n.state, '__note' + i, { minlen: 1 }, 'n' + i); });
+    try { dagre.layout(g); } catch { return { svg: '', W: 40, H: 40 }; }
+
+    let svg = '';
+    notes.forEach((n, i) => {
+      const a = g.node(n.state), b = g.node('__note' + i);
+      if (!a || !b) return;
+      svg += `<path d="M${r1(a.x)},${r1(a.y)} L${r1(b.x)},${r1(b.y)}" stroke="${th.subStroke}" stroke-width="1" stroke-dasharray="3,3"/>`;
+    });
+    edges.forEach((e, i) => {
+      const ed = g.edge(e.from, e.to, 'e' + i);
+      if (!ed?.points?.length) return;
+      svg += `<path class="edge-path" d="${smoothPath(ed.points)}" stroke="${ec}" stroke-width="1.5" fill="none" marker-end="url(#${uid}m)" data-from="${esc(e.from)}" data-to="${esc(e.to)}"/>`;
+      if (e.label && ed.x !== undefined) {
+        const lw = tw(e.label, labelFont) + 8;
+        svg += `<g class="edge-label"><rect x="${r1(ed.x - lw / 2)}" y="${r1(ed.y - 6)}" width="${lw}" height="12" rx="2" fill="${th.edgeLabelBg}"/>
+          <text x="${r1(ed.x)}" y="${r1(ed.y + 3)}" text-anchor="middle" font-family="Inter,system-ui" font-size="9" fill="${th.edgeLabelText}">${esc(e.label)}</text></g>`;
+      }
+    });
+
+    for (const s of states) {
+      const p = g.node(s.id);
+      if (!p) continue;
+      const { width: w, height: h } = dims[s.id];
+      const x = p.x - w / 2, y = p.y - h / 2;
+      if (s.kind === 'start') {
+        svg += `<circle cx="${r1(p.x)}" cy="${r1(p.y)}" r="7" fill="${st.text}"/>`;
+        continue;
+      }
+      if (s.kind === 'end') {
+        svg += `<circle cx="${r1(p.x)}" cy="${r1(p.y)}" r="8" fill="none" stroke="${st.text}" stroke-width="1.5"/><circle cx="${r1(p.x)}" cy="${r1(p.y)}" r="4.5" fill="${st.text}"/>`;
+        continue;
+      }
+      if (s.kind === 'fork' || s.kind === 'join') {
+        svg += `<rect x="${r1(x)}" y="${r1(y)}" width="${w}" height="${h}" rx="2" fill="${st.text}"/>`;
+        continue;
+      }
+      const pid = esc(scopedPath + '/' + s.id);
+      let body;
+      if (s.kind === 'choice') {
+        body = `<polygon class="nshape" points="${r1(p.x)},${r1(y)} ${r1(x + w)},${r1(p.y)} ${r1(p.x)},${r1(y + h)} ${r1(x)},${r1(p.y)}" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>`;
+      } else if (s.composite) {
+        const sub = inner[s.id];
+        body = `<rect class="nshape" x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="10" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="2"/>`;
+        body += `<path d="M${r1(x)},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${th.subStroke}" stroke-width="1"/>`;
+        body += txt(p.x, y + HEAD_H / 2, name(s), 'class="node-lbl" font-size="12" font-weight="600"');
+        body += `<g transform="translate(${r1(p.x - sub.W / 2)},${r1(y + HEAD_H + 4)})">${sub.svg}</g>`;
+      } else {
+        body = `<rect class="nshape" x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="10" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>`;
+        body += txt(p.x, y + HEAD_H / 2, name(s), 'class="node-lbl" font-size="12" font-weight="600"');
+        if (s.descriptions.length) {
+          body += `<path d="M${r1(x)},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${st.border}" stroke-width="1"/>`;
+          s.descriptions.forEach((d, i) => { body += txt(p.x, y + HEAD_H + 3 + ROW_H * i + ROW_H / 2, d, 'font-size="11" opacity="0.75"'); });
+        }
+      }
+      svg += `<g class="reg-node state-node" data-cls="${pid}" onclick="event.stopPropagation();window.__openSb('${pid}')">${body}</g>`;
+    }
+
+    notes.forEach((n, i) => {
+      const b = g.node('__note' + i);
+      if (!b) return;
+      const { lines, width: w, height: h } = noteDims[i];
+      svg += `<rect x="${r1(b.x - w / 2)}" y="${r1(b.y - h / 2)}" width="${w}" height="${h}" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1" stroke-dasharray="4,3"/>`;
+      lines.forEach((l, j) => { svg += txt(b.x, b.y - h / 2 + 5 + ROW_H * j + ROW_H / 2, l, 'font-size="11"'); });
+    });
+
+    const gi = g.graph();
+    return { svg, W: gi.width || 40, H: gi.height || 40 };
+  }
+
+  const res = layoutScope(null);
+  const svgContent = `${marker}<g transform="translate(${PAD},${PAD})">${res.svg}</g>`;
+  return { svgContent, W: r1(res.W + PAD * 2), H: r1(res.H + PAD * 2), labelOverlay: '' };
 }
 
 // ── sidebar diagram renderer (flat, for sidebar only) ─────

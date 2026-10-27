@@ -2,6 +2,7 @@ import type { DiffResult } from '../types.js';
 import { detectDiagramType } from './diagram.js';
 import { parseErDiagram } from './er.js';
 import { parseSequenceDiagram } from './sequence.js';
+import { parseStateDiagram, stateDisplayId } from './state.js';
 
 interface MermaidElement {
   nodes: Set<string>;
@@ -39,6 +40,20 @@ function parseSequence(text: string): MermaidElement {
     seen.set(key, n);
     edges.add(n === 1 ? key : `${key} (${n})`);
   }
+  return { nodes, edges };
+}
+
+/**
+ * State diagram as nodes (states, without the [*] pseudo-states) and edges ("a --> b: event").
+ * The trigger is part of the identity: two transitions between the same states are different events.
+ */
+function parseState(text: string): MermaidElement {
+  const sd = parseStateDiagram(text);
+  const nodes = new Set([...sd.states.values()].filter(s => s.kind !== 'start' && s.kind !== 'end').map(s => s.id));
+  const edges = new Set(sd.transitions.map(t => {
+    const edge = `${stateDisplayId(t.from)} --> ${stateDisplayId(t.to)}`;
+    return t.label ? `${edge}: ${t.label}` : edge;
+  }));
   return { nodes, edges };
 }
 
@@ -159,6 +174,7 @@ export function parseMermaid(text: string): MermaidElement {
   const type = detectDiagramType(text);
   if (type === 'er') return parseEr(text);
   if (type === 'sequence') return parseSequence(text);
+  if (type === 'state') return parseState(text);
 
   const nodes = new Set<string>();
   const edges = new Set<string>();
