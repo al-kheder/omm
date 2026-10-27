@@ -141,6 +141,17 @@ export function flowNodeRole(shape: FlowShape, processFlowchart: boolean): Color
   }
 }
 
+/**
+ * Color role of an architecture-beta service from its icon: data stores and the public
+ * internet have a fixed meaning; servers, functions and everything else stay neutral.
+ */
+export function archServiceRole(icon: string | undefined): ColorRole {
+  const name = (icon ?? '').toLowerCase().replace(/^.*:/, '');
+  if (name === 'database' || name === 'disk' || /(^|-)(db|database|sql|storage|bucket|s3)(-|$)/.test(name)) return 'data';
+  if (name === 'internet') return 'external';
+  return 'neutral';
+}
+
 /** Every role with a color, for tests and documentation */
 export function colorSwatches(theme: DiagramThemeName): Record<string, Swatch> {
   return { ...COLOR[theme] };
