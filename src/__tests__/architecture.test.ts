@@ -182,3 +182,14 @@ describe('architecture flow motion and colors', () => {
     expect(archServiceRole(undefined)).toBe('neutral');
   });
 });
+
+describe('node-count on architecture diagrams', () => {
+  it('counts services and junctions, not the groups that contain them', () => {
+    const many = ['architecture-beta', '  group g(cloud)[G]', '  group h(cloud)[H] in g'];
+    for (let i = 1; i <= 15; i++) many.push(`  service s${i}(server)[S${i}] in h`);
+    for (let i = 1; i < 15; i++) many.push(`  s${i}:R -[calls]-> L:s${i + 1}`);
+    expect(validateDiagram(many.join('\n')).issues.filter(i => i.rule === 'node-count')).toEqual([]);
+    many.push('  service s16(server)[S16] in h', '  s15:R -[calls]-> L:s16');
+    expect(validateDiagram(many.join('\n')).issues.find(i => i.rule === 'node-count')?.message).toBe('16 services and junctions (recommended: 5-15). Consider splitting into sub-diagrams.');
+  });
+});

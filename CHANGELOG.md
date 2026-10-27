@@ -24,6 +24,15 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **`deployment` perspective** in `/omm-scan`: where each part runs and how the running parts connect, drawn as an architecture diagram.
+  - `/omm-scan` runs `omm evidence deployment` first, and skips the perspective when there is no evidence.
+  - Every group, service and connection must come from a file.
+  - Protocols and ports are written only when a file states them; guessed connections are labelled `(unverified)`.
+  - Environments without evidence are listed, not invented.
+  - The files used are recorded in `context`, and open questions in `note`.
+  - Services link to architecture elements with `%% @…` comments only when their source paths match exactly.
+  - This repository now documents its own deployment (`.omm/deployment`).
+- **`node-count`** counts services and junctions in architecture diagrams, not the groups that contain them.
 - **`omm evidence deployment [--json]`** lists the files that say how and where a project is deployed, with the facts read from them:
   - Dockerfiles (stages, exposed ports, command);
   - Docker Compose services (image or build, ports, `depends_on`, networks, replicas, environment *keys*);

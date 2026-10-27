@@ -49,7 +49,7 @@ New Mermaid diagram *types* beyond flowcharts, added one at a time. Design: [des
 | `sequenceDiagram` | Request lifecycles, message exchanges between components | **done** |
 | `stateDiagram-v2` | State machines, the `state-transitions` perspective | **done** |
 | `flowchart` (process) | Business workflows for non-technical readers: start/end, decisions, lanes, SVG/PNG export | **done** (shared parser replaces the viewer's copy) |
-| `architecture-beta` | Deployment: where software runs and how the running parts connect | **done** |
+| `architecture-beta` | Deployment: where software runs and how the running parts connect (`deployment` perspective, `omm evidence deployment`) | **done** |
 | `classDiagram` | Type hierarchies and interfaces | proposed |
 
 Each type needs:
