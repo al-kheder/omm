@@ -24,6 +24,11 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **Flow motion** for explaining how data or work moves. The new **flow** button in the viewer toolbar shows a small file icon travelling along the arrows that carry something:
+  - every one-way arrow of a process flowchart;
+  - every message of a sequence diagram, one after another in order;
+  - architecture edges marked `e1@{ animate: true }`.
+  Dependencies ("implements", "imports"), state and ER diagrams stay still. The icon follows the drawn line from source to target, passes under labels and elements, and stops before the arrowhead. Flow is off by default and remembered per browser. It stays off when the system asks for reduced motion, and downloads never include it. `/omm-scan` now marks the architecture edges that carry data.
 - **Edge IDs and edge animation settings** in flowcharts, written the Mermaid way: `a e1@--> b`, then `e1@{ animate: true }` (or `animation: fast` / `slow`, or `animate: false`). `omm validate` accepts them and reports settings for an edge ID that does not exist. `omm diff` ignores the IDs.
 - **Color mode** for every diagram type. The new **mono | color** switch in the viewer toolbar changes between the original black-and-white look (still the default) and colors that show what each element is. The choice is remembered per browser, works with both themes and is used by SVG/PNG export.
   - **Flowcharts:** start/end green, steps blue (in process flowcharts), decisions amber, input/output teal, documents violet, subprocesses indigo, data stores slate; the omm categories `entry` (blue), `store` (green), `external` (grey) and `concern` (pink). Plain architecture nodes, edges and lanes stay neutral.
