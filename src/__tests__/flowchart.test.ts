@@ -223,3 +223,54 @@ describe('diffMermaid on flowcharts', () => {
     expect(parseMermaid('pie\n  "a" : 1').nodes.has('pie')).toBe(false);
   });
 });
+
+describe('edge IDs and animation', () => {
+  const FLOW = `flowchart LR
+    web[Web] e1@-->|upload| api[API]
+    api e2@-.-> store[(Files)]
+    store --> web
+    e1@{ animate: true }
+    e2@{ animation: slow }`;
+
+  it('reads edge IDs and their animation settings', () => {
+    const fc = parseFlowchart(FLOW);
+    expect(fc.errors).toEqual([]);
+    expect([...fc.nodes.keys()]).toEqual(['web', 'api', 'store']);
+    expect(fc.edges.map(e => [e.from, e.to, e.id, e.animate, e.animation])).toEqual([
+      ['web', 'api', 'e1', true, undefined],
+      ['api', 'store', 'e2', true, 'slow'],
+      ['store', 'web', undefined, undefined, undefined],
+    ]);
+    expect(fc.edges[0]).toMatchObject({ label: 'upload', style: 'solid', head: 'arrow' });
+    expect(fc.edges[1]).toMatchObject({ style: 'dotted', head: 'arrow' });
+  });
+
+  it('accepts settings before the edge, inline labels, chains and animate: false', () => {
+    const fc = parseFlowchart('flowchart TD\n  e1@{ animate: false }\n  a e1@-- sends --> b e2@==> c\n  e2@{ animate: true, curve: linear }');
+    expect(fc.errors).toEqual([]);
+    expect(fc.edges.map(e => [e.from, e.to, e.label, e.id, e.animate])).toEqual([
+      ['a', 'b', 'sends', 'e1', false],
+      ['b', 'c', '', 'e2', true],
+    ]);
+  });
+
+  it('keeps node shapes written with @{ }', () => {
+    const fc = parseFlowchart('flowchart TD\n  a --> d\n  d@{ shape: doc, label: "Invoice" }');
+    expect(fc.nodes.get('d')).toMatchObject({ shape: 'document', label: 'Invoice' });
+  });
+
+  it('does not take an ID without whitespace as an edge ID', () => {
+    expect(parseFlowchart('flowchart TD\n  a@-->b').edges[0]).toMatchObject({ from: 'a@', to: 'b' });
+  });
+
+  it('reports settings for an edge ID that does not exist', () => {
+    const fc = parseFlowchart('flowchart TD\n  a e1@--> b\n  e9@{ animate: true }');
+    expect(fc.errors).toEqual([{ line: 3, message: 'No edge with ID e9 (write it as: a e9@--> b)' }]);
+  });
+
+  it('is accepted by omm validate, and omm diff ignores the IDs', () => {
+    expect(validateDiagram(FLOW).issues.filter(i => i.level === 'error')).toEqual([]);
+    expect([...parseMermaid(FLOW).edges].sort()).toEqual(['api -.-> store', 'store --> web', 'web --> api']);
+    expect(diffMermaid(FLOW.replace(/ e1@/, ' '), FLOW)).toMatchObject({ added_edges: [], removed_edges: [], added_nodes: [] });
+  });
+});

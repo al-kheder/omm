@@ -24,6 +24,7 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **Edge IDs and edge animation settings** in flowcharts, written the Mermaid way: `a e1@--> b`, then `e1@{ animate: true }` (or `animation: fast` / `slow`, or `animate: false`). `omm validate` accepts them and reports settings for an edge ID that does not exist. `omm diff` ignores the IDs.
 - **Color mode** for every diagram type. The new **mono | color** switch in the viewer toolbar changes between the original black-and-white look (still the default) and colors that show what each element is. The choice is remembered per browser, works with both themes and is used by SVG/PNG export.
   - **Flowcharts:** start/end green, steps blue (in process flowcharts), decisions amber, input/output teal, documents violet, subprocesses indigo, data stores slate; the omm categories `entry` (blue), `store` (green), `external` (grey) and `concern` (pink). Plain architecture nodes, edges and lanes stay neutral.
   - **ER:** entity headers blue; key badges unchanged. **Sequence:** participants and activation bars blue, notes yellow. **State:** states blue, choices amber, notes yellow; start/end markers stay black/white as in UML.
