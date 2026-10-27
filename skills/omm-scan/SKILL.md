@@ -61,6 +61,7 @@ From the catalog below, choose which perspectives are meaningful for this codeba
 | `orchestration` | Event-driven/queue systems | Publisher, subscriber, broker topology |
 | `storage` | 2+ storage systems | Storage topology (DB, cache, queue, object store) |
 | `data-model` | Database schema, ORM models, persisted file formats | What data exists and how entities relate. Uses an **ER diagram**; see "ER Diagram Rules" |
+| `business-processes` | User-facing or business workflows in the code (checkout, sign-up, approval, refund, onboarding) | What happens step by step, who does each step and where the process branches. Uses a **process flowchart**; see "Process Flowchart Rules" |
 
 Don't force perspectives that don't exist in the code.
 
@@ -340,6 +341,66 @@ MERMAID
 
 - Keep 3–15 states per diagram. Move the details of a busy state into a composite state or its own child element.
 - Run `omm validate` afterwards. It reports syntax errors with line numbers (unclosed `{`, invalid arrows), states without transitions and transitions without a trigger.
+
+## Process Flowchart Rules
+
+Use a **process flowchart** when the element is about **a workflow someone could follow from start to finish**, often for readers who do not know the code (clients, managers, support staff):
+
+- a checkout, sign-up, approval or refund flow
+- an onboarding or document-processing workflow
+- an algorithm explained step by step
+
+Also use these rules whenever the user asks for a flowchart to explain a process or workflow to someone non-technical.
+
+```bash
+omm write business-processes/refund diagram - <<'MERMAID'
+flowchart LR
+    subgraph customer [Customer]
+        start([Asks for a refund]) --> form[/Fills in the refund form/]
+        answer([Receives the answer])
+    end
+    subgraph support [Support team]
+        check{Within 30 days?}
+        approve[Approve the refund]
+        refuse[Explain why it is refused]
+    end
+    subgraph payments [Payment system]
+        pay[[Send the money back to the card]]
+    end
+    form --> check
+    check -->|Yes| approve
+    check -->|No| refuse
+    approve --> pay
+    pay --> answer
+    refuse --> answer
+MERMAID
+```
+
+**Symbols**
+
+| Meaning | Syntax | Shape |
+| --- | --- | --- |
+| Start / end | `id([Text])` | Rounded pill |
+| Step (action) | `id[Text]` | Rectangle |
+| Decision (question) | `id{Question?}` | Diamond |
+| Input / output (data in or out) | `id[/Text/]` | Parallelogram |
+| Document or report | `id@{ shape: doc, label: "Text" }` | Rectangle with a wavy bottom |
+| Subprocess (documented separately) | `id[[Text]]` | Rectangle with double sides |
+| Connector to another part of the diagram | `id((A))` | Small circle |
+| Stored data | `id[(Text)]` | Cylinder |
+
+**Writing for non-technical readers**
+
+- Write steps as short actions in plain words: "Approve the refund", not `RefundService.approve()`. No file paths, class names or jargon.
+- Write decisions as yes/no questions ("Within 30 days?") and label **every** answer leaving them: `check -->|Yes| approve`. Use more than two answers when the process has them.
+- Start with one `([Start])` node and end every path at an `([End])` node. A loop goes back to an earlier step with a labelled answer (`more -->|Yes| next-item`).
+- Use one `subgraph id [Role]` lane per person, team or system when more than one is involved. Each node belongs to the lane it first appears in.
+- Keep 5–15 steps. Move a long part into a `[[subprocess]]` and document it as a child element with its own process flowchart (its ID must match the child directory).
+- Ordinary steps, decisions and start/end nodes are not elements: they need no child directory or description. Only `[[subprocess]]` steps become child elements.
+- Labels are one line (use `<br>` for a deliberate line break; long labels wrap automatically). Do not add the `\n` file-path line used in architecture diagrams.
+- Run `omm validate` afterwards. In a flowchart with a start or end node, it only asks for labels on decision branches, and warns about a decision with fewer than two ways out.
+
+To present a flowchart, open it with `omm view`, click **clean** (hides file paths), select the perspective and click **png** or **svg**. The ○ button switches to the light theme, which usually suits slides better.
 
 ## General Rules
 
