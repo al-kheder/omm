@@ -24,6 +24,46 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **`deployment` perspective** in `/omm-scan`: where each part runs and how the running parts connect, drawn as an architecture diagram.
+  - `/omm-scan` runs `omm evidence deployment` first, and skips the perspective when there is no evidence.
+  - Every group, service and connection must come from a file.
+  - Protocols and ports are written only when a file states them; guessed connections are labelled `(unverified)`.
+  - Environments without evidence are listed, not invented.
+  - The files used are recorded in `context`, and open questions in `note`.
+  - Services link to architecture elements with `%% @…` comments only when their source paths match exactly.
+  - This repository now documents its own deployment (`.omm/deployment`).
+- **`node-count`** counts services and junctions in architecture diagrams, not the groups that contain them.
+- **`omm evidence deployment [--json]`** lists the files that say how and where a project is deployed, with the facts read from them:
+  - Dockerfiles (stages, exposed ports, command);
+  - Docker Compose services (image or build, ports, `depends_on`, networks, replicas, environment *keys*);
+  - Kubernetes objects (workloads with images and ports, Services, Ingress routes, CronJobs);
+  - Helm charts, Terraform resources and modules, serverless functions, Procfile processes;
+  - hosting platform files (Vercel, Netlify, Fly.io, Render, Cloudflare, App Engine …);
+  - nginx and Caddy sites and upstreams;
+  - CI/CD deploy jobs with their environment and tools;
+  - packages with commands to install.
+
+  Environment names (development, staging, production …) are gathered from file names, folders, namespaces and CI environments. Routes and selectors that lead nowhere are reported, and so are files that cannot be parsed.
+
+  **Safety:**
+  - `.env` files are listed but never opened;
+  - ConfigMaps, Secrets and environment variables contribute names only;
+  - anything that still looks like a secret is shown as `[redacted]`;
+  - symlinks and dependency folders are skipped.
+- **Architecture diagrams (`architecture-beta`)** for deployment: where software runs and how the running parts connect.
+  - **Parsing:**
+    - groups (cloud accounts, networks, hosts, containers), nested with `in`;
+    - services with icons;
+    - junctions;
+    - connections with sides (`a:R --> L:b`), arrowheads, titles (`-[HTTPS]->`) and `{group}` ends;
+    - `align`, `title` and accessibility lines.
+  - **`omm validate`:** reports syntax errors with line numbers (`arch-syntax`), and warns about services without connections (`arch-orphan`) and connections without a label (`arch-edge-label`).
+  - **`omm diff`:** reports added and removed groups, services and connections.
+  - **Viewer:**
+    - groups are drawn as nested dashed boxes and services as boxes with an icon;
+    - connections show their labels;
+    - **color** marks data stores and the internet, and **flow** moves an icon along every one-way connection.
+  - A `%% @perspective/element` comment links the diagram to another element without drawing it.
 - **Secret check.** `omm validate` reports an error (`secret-value`) when a diagram contains something that looks like a secret:
   - private keys;
   - AWS, GitHub, Slack, Google, Stripe and `sk-` API keys;

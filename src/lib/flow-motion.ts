@@ -6,7 +6,8 @@
  *   moves from step to step;
  * - in any other flowchart, only edges the author marked with `e1@{ animate: true }`
  *   (an architecture edge may be a dependency such as "implements", which does not move);
- * - in a sequence diagram, every message, one after another in diagram order.
+ * - in a sequence diagram, every message, one after another in diagram order;
+ * - in an architecture (deployment) diagram, every one-way connection.
  * State and ER diagrams never move: a transition or relationship is not data in transit.
  */
 import type { FlowEdge } from './flowchart.js';
@@ -34,6 +35,15 @@ export function edgeMotion(edge: Pick<FlowEdge, 'style' | 'head' | 'tail' | 'ani
   if (edge.animate) return edge.animation ?? 'normal';
   if (processFlowchart && edge.head !== 'none' && edge.tail === 'none') return 'normal';
   return null;
+}
+
+/**
+ * Speed of the moving icon on an architecture-beta connection, or null when it stays static.
+ * These diagrams show runtime connections (requests, queries, messages), so every one-way
+ * connection moves, towards its arrowhead. Two-way and plain `--` connections stay still.
+ */
+export function archEdgeMotion(edge: { head: boolean; tail: boolean }): FlowSpeed | null {
+  return edge.head !== edge.tail ? 'normal' : null;
 }
 
 /** Seconds the icon needs to travel a line of the given length */

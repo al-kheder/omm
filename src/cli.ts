@@ -18,11 +18,12 @@ import { commandSetup } from './commands/setup.js';
 import { commandUpdate } from './commands/update.js';
 import { commandOrg } from './commands/org.js';
 import { commandValidate } from './commands/validate.js';
+import { commandEvidence } from './commands/evidence.js';
 import { commandTree } from './commands/tree.js';
 import { commandRead, commandWrite } from './commands/read-write.js';
 import { commandConfig } from './commands/config.js';
 
-const GLOBAL_COMMANDS = ['init', 'setup', 'update', 'list', 'show', 'delete', 'status', 'diff', 'refs', 'validate', 'view', 'login', 'logout', 'push', 'pull', 'link', 'share', 'org', 'read', 'write', 'tree', 'config', 'help'];
+const GLOBAL_COMMANDS = ['init', 'setup', 'update', 'list', 'show', 'delete', 'status', 'diff', 'refs', 'validate', 'view', 'login', 'logout', 'push', 'pull', 'link', 'share', 'org', 'read', 'write', 'tree', 'config', 'help', 'evidence'];
 
 function printHelp(): void {
   const help = `
@@ -46,6 +47,8 @@ Usage:
   omm validate [path]               Validate diagram(s) for syntax and conventions
   omm view [--port <port>] [--host <addr>]
                                     Start web viewer (default: localhost:3000)
+  omm evidence deployment [--json]  List deployment files (Docker, Kubernetes, Terraform, CI …)
+                                    and the facts in them; secrets are never shown
 
 Cloud (optional, requires OMM_API_URL):
   omm login                         Log in to the cloud server
@@ -141,6 +144,10 @@ async function main(): Promise<void> {
         process.exit(1);
       }
       commandDiff(args[1]);
+      return;
+
+    case 'evidence':
+      commandEvidence(args[1], args.slice(2));
       return;
 
     case 'validate':
