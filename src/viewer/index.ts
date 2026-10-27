@@ -6,3 +6,4 @@ export { parseSequenceDiagram, messageStyle } from '../lib/sequence.js';
 export { parseStateDiagram, stateDisplayId } from '../lib/state.js';
 export { parseFlowchart } from '../lib/flowchart.js';
 export { nodeColors, edgeColors, flowNodeRole, isProcessFlowchart } from '../lib/palette.js';
+export { FLOW_MOTION, edgeMotion, tripSeconds } from '../lib/flow-motion.js';

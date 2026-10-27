@@ -158,6 +158,16 @@ Report what was created/updated and suggest `omm view` to view.
   ```
 
 - Every edge must have a meaningful label: `A -->|"why this connection exists"| B`
+- **Mark edges that carry something.** When an edge stands for data, files, requests, messages or events moving from A to B (`"upload file"`, `"POST /orders"`, `"publish order.created"`), give it an ID and mark it as animated. The viewer's **flow** button then shows a file icon moving along it:
+
+  ```text
+  web e1@-->|"upload file"| api
+  api e2@-->|"store file"| files
+  e1@{ animate: true }
+  e2@{ animate: true }
+  ```
+
+  Do not mark dependencies that do not move anything: `imports`, `implements`, `extends`, `aggregates`, `re-exports`, `configures`. Use `animation: slow` for batch or scheduled transfers. Edge IDs must be unique within the diagram.
 - **Cross-references** link to an element documented elsewhere. Put `@` plus the element path at the start of the label:
   - `@data-flow` points to a perspective.
   - `@overall-architecture/server` points to a nested element.
@@ -405,7 +415,7 @@ MERMAID
 - Labels are one line (use `<br>` for a deliberate line break; long labels wrap automatically). Do not add the `\n` file-path line used in architecture diagrams.
 - Run `omm validate` afterwards. In a flowchart with a start or end node, it only asks for labels on decision branches, and warns about a decision with fewer than two ways out.
 
-To present a flowchart, open it with `omm view`, click **color** (colors by meaning) and **clean** (hides file paths), select the perspective and click **png** or **svg**. The ○ button switches to the light theme, which usually suits slides better.
+To present a flowchart, open it with `omm view`, click **color** (colors by meaning) and **clean** (hides file paths), select the perspective and click **png** or **svg**. The ○ button switches to the light theme, which usually suits slides better. When presenting live, **flow** shows a file icon moving along every arrow of a process flowchart; no `animate` marks are needed there. To keep one arrow still, give it an ID and `animate: false`.
 
 ## General Rules
 

@@ -101,7 +101,16 @@ describe('edge colors', () => {
     }
   });
 
+  it('keep the moving icon visible on the background and apart from the line', () => {
+    for (const t of THEMES) {
+      const e = edgeColors(t);
+      for (const bg of BACKGROUNDS[t]) expect(contrastRatio(e.iconFill, bg), `${t} icon on ${bg}`).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(e.iconOutline, e.line), `${t} icon outline on line`).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(e.iconOutline, e.iconFill), `${t} outline on icon`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
   it('keep the original dark theme', () => {
-    expect(edgeColors('dark')).toEqual({ line: '#909090', labelBg: '#000000', labelText: '#aaaaaa' });
+    expect(edgeColors('dark')).toMatchObject({ line: '#909090', labelBg: '#000000', labelText: '#aaaaaa' });
   });
 });
