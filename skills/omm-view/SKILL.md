@@ -51,6 +51,12 @@ Tell the user the viewer is running and provide the URL (default: `http://localh
 
 The viewer auto-refreshes when `.omm/` files change.
 
+If the user wants to share or present a diagram, tell them about the toolbar in the top-right corner:
+
+- **clean** hides the file paths under element names (useful for clients and other non-technical readers)
+- **svg** / **png** download the selected perspective, or every perspective when none is selected
+- **○** switches between the dark and light theme; the download uses the current theme
+
 ## Rules
 
 - Always check for existing classes before starting the viewer
