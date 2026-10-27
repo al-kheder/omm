@@ -364,10 +364,12 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     }
   }
 
-  // Rule: node-count (uses parseMermaid for counting only; entities for ER, participants for sequence, states for state diagrams)
+  // Rule: node-count (uses parseMermaid for counting only; entities for ER, participants for sequence, states for
+  // state diagrams; services and junctions for architecture diagrams, where groups only contain them)
   const parsed = parseMermaid(text);
-  const nodeCount = parsed.nodes.size;
-  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : type === 'state' ? 'states' : type === 'architecture' ? 'groups, services and junctions' : 'nodes';
+  const arch = type === 'architecture' ? parseArchitectureDiagram(text) : null;
+  const nodeCount = arch ? arch.services.size + arch.junctions.size : parsed.nodes.size;
+  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : type === 'state' ? 'states' : arch ? 'services and junctions' : 'nodes';
   if (nodeCount > 0 && nodeCount < 3 && (type === 'flowchart' || type === 'unknown')) {
     issues.push({
       level: 'warning',

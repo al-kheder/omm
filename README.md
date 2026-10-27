@@ -89,7 +89,7 @@ The viewer auto-detects nesting from the filesystem — elements with children r
 
 Each element carries up to 7 fields: `description`, `diagram`, `context`, `constraint`, `concern`, `todo`, `note`.
 
-Diagrams are flowcharts (`graph` / `flowchart`), ER diagrams (`erDiagram`) for data models such as database schemas, sequence diagrams (`sequenceDiagram`) for the order of calls in a request or protocol, or state diagrams (`stateDiagram-v2`) for lifecycles and state machines. All four are validated by `omm validate` and rendered by the viewer. Flowcharts also work as process diagrams for non-technical readers: start/end, steps, yes/no decisions, input/output, documents, subprocesses and one lane per role (`subgraph`).
+Diagrams are flowcharts (`graph` / `flowchart`), ER diagrams (`erDiagram`) for data models such as database schemas, sequence diagrams (`sequenceDiagram`) for the order of calls in a request or protocol, state diagrams (`stateDiagram-v2`) for lifecycles and state machines, or architecture diagrams (`architecture-beta`) for deployment: where each part runs and how the running parts connect. All five are validated by `omm validate` and rendered by the viewer. Flowcharts also work as process diagrams for non-technical readers: start/end, steps, yes/no decisions, input/output, documents, subprocesses and one lane per role (`subgraph`). For the `deployment` perspective, `/omm-scan` first runs `omm evidence deployment`, which lists the Docker, Kubernetes, Terraform, CI and hosting files in the project and the facts in them, without ever showing secrets. Projects without such files get no deployment diagram.
 
 ## CLI
 

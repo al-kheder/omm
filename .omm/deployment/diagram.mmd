@@ -1,0 +1,31 @@
+architecture-beta
+  %% @overall-architecture/cli
+  %% @overall-architecture/server
+  %% @overall-architecture/platforms
+  group github(cloud)[GitHub]
+  service repo(disk)["Repository\nal-kheder/omm"] in github
+  service release(server)["Release workflow\n.github/workflows/release.yml"] in github
+  group registry(cloud)[npm registry]
+  service package(disk)["Package\n@al-kheder/oh-my-mermaid"] in registry
+  group machine(server)[Developer machine]
+  group node(server)[Node.js 18+ process] in machine
+  service cli(server)["omm CLI\nsrc/cli.ts"] in node
+  service viewer(server)["Viewer server 127.0.0.1:3000\nsrc/server/"] in node
+  service browser(internet)[Browser] in machine
+  service omm-dir(disk)[".omm/ in the project"] in machine
+  service credentials(disk)["~/.omm/credentials.json"] in machine
+  group agents(server)[AI coding tools] in machine
+  service claude-plugin(server)[Claude Code plugin] in agents
+  service skill-folders(disk)["Skill folders\n~/.agents, ~/.openclaw, ~/.gemini, .cursor-plugin"] in agents
+  service cloud-api(internet)["Cloud API\nOMM_API_URL, optional"]
+  release:R -[pnpm publish]-> L:package
+  repo:B -[npm install -g github:al-kheder/omm]-> T:cli
+  package:B -[npm install -g (after first release)]-> T:cli
+  repo:R -[claude plugin marketplace add]-> L:claude-plugin
+  cli:B -[omm setup: copy skills]-> T:skill-folders
+  claude-plugin:L -[runs omm commands]-> R:cli
+  cli:R -[read / write files]-> L:omm-dir
+  browser:R -[HTTP + SSE 127.0.0.1:3000]-> L:viewer
+  viewer:R -[read files, fs.watch]-> L:omm-dir
+  cli:B -[read token]-> T:credentials
+  cli{group}:R -[HTTPS push / pull]-> L:cloud-api

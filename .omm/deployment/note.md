@@ -1,0 +1,5 @@
+- Environments: there is one runtime, the user's machine. No staging or production servers exist in the repository.
+- The npm package is not published yet (CHANGELOG), so the npm → CLI connection describes the planned install path.
+- The cloud API server is not part of this repository; only its client is. Its hosting is unknown.
+- Links: the CLI, viewer and skill installer link to `overall-architecture/cli`, `server` and `platforms` because their source paths match exactly. `.omm/` is described by the `data-model` perspective, but no element there has a matching path, so it is not linked.
+- `.github/workflows/ci.yml` and `check-version-sync.yml` only test; they deploy nothing.
