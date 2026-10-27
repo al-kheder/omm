@@ -53,7 +53,7 @@ Claude Code'da yetenek `/oh-my-mermaid:omm-scan` olarak görünür. Tarama, belg
 omm view
 ```
 
-Ardından http://localhost:3000 adresini açın. Başka bir port için `--port <n>` kullanın. Görüntüleyici yalnızca kendi bilgisayarınızdan gelen bağlantıları kabul eder ve `.omm/` değiştikçe canlı olarak güncellenir. Araç çubuğunda **clean** dosya yollarını gizler, **svg** / **png** ise seçili diyagramı indirir; örneğin bir müşteri sunumuna eklemek için.
+Ardından http://localhost:3000 adresini açın. Başka bir port için `--port <n>` kullanın. Görüntüleyici yalnızca kendi bilgisayarınızdan gelen bağlantıları kabul eder ve `.omm/` değiştikçe canlı olarak güncellenir. Araç çubuğunda **clean** dosya yollarını gizler, **svg** / **png** ise seçili diyagramı indirir; örneğin bir müşteri sunumuna eklemek için. **mono | color** siyah-beyaz görünüm ile her öğenin ne olduğunu gösteren renkler (başlangıç/bitiş, karar, veri deposu …) arasında geçiş yapar. **flow**, veri veya işin taşındığı oklar boyunca hareket eden küçük bir dosya simgesi göstererek bir sürecin nasıl işlediğini anlatmayı kolaylaştırır.
 
 ## Örnek
 

@@ -93,6 +93,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 .hbtn { background: none; border: 1px solid var(--border-hi); color: var(--text-mid); height: 26px; min-width: 26px; padding: 0 8px; border-radius: 5px; cursor: pointer; font-size: 13px; font-family: var(--font); transition: border-color .12s, color .12s; }
 .hbtn:hover { border-color: #3a3a3a; color: var(--text); }
 .hbtn.on { border-color: var(--text-mid); color: var(--text); }
+.hbtn:focus-visible { outline: 2px solid #818cf8; outline-offset: 1px; }
+.seg { display: inline-flex; }
+.seg .hbtn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.seg .hbtn:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
 #zoom-label { font-size: 11px; color: var(--text-dim); width: 38px; text-align: center; font-family: var(--mono); }
 
 #canvas-wrap {
@@ -115,6 +119,12 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); disp
 .reg-node .nshape { transition: stroke .12s, filter .12s; }
 .reg-node:hover .nshape { stroke: #ffffff !important; stroke-width: 2.5px; filter: drop-shadow(0 0 6px rgba(255,255,255,0.5)); }
 /* Edge highlight on node hover */
+/* Flow motion icons: never in the way of clicks; hidden where the content around them is */
+.flow-icon { pointer-events: none; }
+#canvas-wrap.zoom-overview .flow-icon { display: none; }
+#canvas-wrap.zoom-overview [data-cls].focus-exempt > .grp-inner .flow-icon { display: inline; }
+.grp-node.grp-collapsed:not(.focus-exempt) > .grp-inner .flow-icon { display: none; }
+.hbtn:disabled { opacity: .45; cursor: not-allowed; }
 .edge-path.edge-hl { stroke: #ffffff !important; stroke-width: 2.5px; opacity: 1; transition: all .15s; }
 .reg-node.selected .nshape { stroke: #818cf8 !important; stroke-width: 2.5px; filter: drop-shadow(0 0 8px rgba(129,140,248,0.6)); }
 /* Overview mode: per-element fade — borders + edges stay visible */
@@ -233,6 +243,7 @@ body.light .grp-node.selected > .grp-border { stroke: #4f46e5 !important; filter
 body.light .reg-node:hover .nshape { stroke: #000 !important; filter: drop-shadow(0 0 6px rgba(0,0,0,0.3)); }
 body.light .reg-node.selected .nshape { stroke: #4f46e5 !important; filter: drop-shadow(0 0 8px rgba(79,70,229,0.4)); }
 body.light .reg-node:hover .nshape { stroke: #000 !important; }
+body.light .edge-path.edge-hl { stroke: #1a1a1a !important; }
 
 #mobile-nav-btn { display: none; }
 #mobile-overlay { display: none; }
@@ -299,7 +310,11 @@ body.light .reg-node:hover .nshape { stroke: #000 !important; }
     <span id="zoom-label">70%</span>
     <button class="hbtn" onclick="zoomIn()">+</button>
     <button class="hbtn" onclick="resetView()" style="font-size:11px">fit</button>
+    <span id="color-mode" class="seg" role="group" aria-label="Diagram colors" title="Diagram colors: monochrome, or colors that show what each element is">
+      <button class="hbtn" data-mode="monochrome" aria-pressed="true" onclick="setColorMode('monochrome')" style="font-size:11px">mono</button><button class="hbtn" data-mode="color" aria-pressed="false" onclick="setColorMode('color')" style="font-size:11px">color</button>
+    </span>
     <button class="hbtn" id="clean-btn" onclick="toggleClean()" title="Clean view: hide file paths under element names" style="font-size:11px">clean</button>
+    <button class="hbtn" id="flow-btn" onclick="toggleFlow()" aria-pressed="false" title="Flow: a file icon moves along the edges that carry data or work" style="font-size:11px">flow</button>
     <button class="hbtn" onclick="exportDiagram('svg')" title="Download the selected perspective (or everything) as SVG" style="font-size:11px">svg</button>
     <button class="hbtn" onclick="exportDiagram('png')" title="Download the selected perspective (or everything) as PNG" style="font-size:11px">png</button>
     <button class="hbtn" id="theme-btn" onclick="toggleTheme()" style="font-size:13px">○</button>
@@ -354,18 +369,68 @@ window.toggleClean = function() {
   applyClean();
   rebuildCanvas();
 };
+
+// Flow motion (for explaining how data or work moves): a small file icon travels along the
+// edges that stand for movement; which ones is decided in src/lib/flow-motion.ts. Off by
+// default, always off when the system asks for reduced motion, and never part of an export.
+let flowMotion = safeStorageGet('omm-flow') === '1';
+const reducedMotion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+const motionOn = () => flowMotion && !reducedMotion?.matches;
+function applyFlowMotion() {
+  const btn = document.getElementById('flow-btn');
+  if (!btn) return;
+  const blocked = !!reducedMotion?.matches;
+  btn.classList.toggle('on', motionOn());
+  btn.setAttribute('aria-pressed', motionOn() ? 'true' : 'false');
+  btn.disabled = blocked;
+  btn.title = blocked
+    ? 'Flow animation is off because your system asks for reduced motion'
+    : 'Flow: a file icon moves along the edges that carry data or work';
+}
+window.toggleFlow = function() {
+  if (reducedMotion?.matches) return;
+  flowMotion = !flowMotion;
+  safeStorageSet('omm-flow', flowMotion ? '1' : '0');
+  applyFlowMotion();
+  rebuildCanvas();
+};
+reducedMotion?.addEventListener?.('change', () => { applyFlowMotion(); rebuildCanvas(); });
+// No animation work while the tab is hidden
+document.addEventListener('visibilitychange', () => {
+  const svg = document.querySelector('#canvas svg');
+  if (svg?.pauseAnimations) document.hidden ? svg.pauseAnimations() : svg.unpauseAnimations();
+});
+
+// Diagram colors: 'monochrome' (default, the original look) or 'color' (semantic colors from
+// src/lib/palette.ts). Independent of the light/dark theme; remembered per browser.
+let colorMode = safeStorageGet('omm-diagram-colors') === 'color' ? 'color' : 'monochrome';
+function applyColorMode() {
+  document.querySelectorAll('#color-mode [data-mode]').forEach(b => {
+    const on = b.dataset.mode === colorMode;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+window.setColorMode = function(mode) {
+  if (mode !== 'color' && mode !== 'monochrome') return;
+  if (mode === colorMode) return;
+  colorMode = mode;
+  safeStorageSet('omm-diagram-colors', mode);
+  applyColorMode();
+  rebuildCanvas();
+};
 function theme() {
+  const edge = OmmViewer.edgeColors(isDark ? 'dark' : 'light');
+  const edges = { edgeColor0: edge.line, edgeLabelBg: edge.labelBg, edgeLabelText: edge.labelText, iconFill: edge.iconFill, iconOutline: edge.iconOutline };
   return isDark ? {
     groupFill:'#0a0a0a', groupStroke:'#666666',
     subFill:'#111111', subStroke:'#666666', subLabelFill:'#ffffff',
-    edgeColor0:'#909090', edgeColor1:'#787878',
-    edgeLabelBg:'#000000', edgeLabelText:'#aaaaaa',
+    edgeColor1:'#787878', ...edges,
     grpLabelFill:'#ffffff', grpLabelCenterFill:'#dddddd',
   } : {
     groupFill:'#f8f8f8', groupStroke:'#bbb',
     subFill:'#efefef', subStroke:'#bbb', subLabelFill:'#888',
-    edgeColor0:'#94a3b8', edgeColor1:'#bbb',
-    edgeLabelBg:'#e8e8e8', edgeLabelText:'#475569',
+    edgeColor1:'#bbb', ...edges,
     grpLabelFill:'#475569', grpLabelCenterFill:'#222',
   };
 }
@@ -458,6 +523,28 @@ function flowShapeSvg(shape, x, y, w, h, st) {
   }
 }
 
+// Point where the line from the centre c of a w×h box towards p leaves the box
+function boxEdge(c, p, w, h) {
+  const dx = p.x - c.x, dy = p.y - c.y;
+  if (!dx && !dy) return c;
+  const t = Math.min(dx ? (w / 2) / Math.abs(dx) : Infinity, dy ? (h / 2) / Math.abs(dy) : Infinity);
+  return { x: c.x + dx * t, y: c.y + dy * t };
+}
+
+// True when the segment a→b passes through the w×h box centred on c (with a small margin)
+function segmentHitsBox(a, b, c, w, h) {
+  const x0 = c.x - w / 2 - 2, x1 = c.x + w / 2 + 2, y0 = c.y - h / 2 - 2, y1 = c.y + h / 2 + 2;
+  let t0 = 0, t1 = 1;
+  const dx = b.x - a.x, dy = b.y - a.y;
+  for (const [p, q] of [[-dx, a.x - x0], [dx, x1 - a.x], [-dy, a.y - y0], [dy, y1 - a.y]]) {
+    if (!p) { if (q < 0) return false; continue; }
+    const t = q / p;
+    if (p < 0) t0 = Math.max(t0, t); else t1 = Math.min(t1, t);
+    if (t0 > t1) return false;
+  }
+  return true;
+}
+
 // Move an edge end from the layout box onto the outline of a diamond or circle
 function clipToShape(p, c, w, h, shape) {
   const dx = p.x - c.x, dy = p.y - c.y;
@@ -487,27 +574,82 @@ function flowLabelSvg(text, cx, cy, st, shape) {
   return out;
 }
 
+// Arrowhead marker, the same size in every diagram type. `open` draws the line-only
+// head that sequence diagrams use for async messages.
+const ARROW_W = 10, ARROW_H = 8;
+function arrowMarker(id, color, open = false) {
+  const head = open
+    ? `<path d="M1,1 L${ARROW_W - 1},${ARROW_H / 2} L1,${ARROW_H - 1}" fill="none" stroke="${color}" stroke-width="1.5"/>`
+    : `<path d="M0,0 L${ARROW_W},${ARROW_H / 2} L0,${ARROW_H} z" fill="${color}"/>`;
+  return `<marker id="${id}" markerWidth="${ARROW_W}" markerHeight="${ARROW_H}" refX="${ARROW_W - 1}" refY="${ARROW_H / 2}" orient="auto-start-reverse" markerUnits="userSpaceOnUse">${head}</marker>`;
+}
+
 // Arrow-end markers for flowchart edges: arrow, circle and cross
 function flowMarkerDefs(id, color) {
   return `<defs>
-    <marker id="${id}arrow" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0.5 L0,5.5 L7,3 z" fill="${color}"/></marker>
-    <marker id="${id}circle" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><circle cx="4" cy="4" r="3" fill="none" stroke="${color}" stroke-width="1.5"/></marker>
-    <marker id="${id}cross" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1,1 L7,7 M7,1 L1,7" stroke="${color}" stroke-width="1.5"/></marker>
+    ${arrowMarker(id + 'arrow', color)}
+    <marker id="${id}circle" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><circle cx="5" cy="5" r="4" fill="none" stroke="${color}" stroke-width="1.5"/></marker>
+    <marker id="${id}cross" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M1,1 L9,9 M9,1 L1,9" stroke="${color}" stroke-width="1.5"/></marker>
   </defs>`;
 }
 
+// ── flow motion icons ─────────────────────────────────────
+// <animateMotion> moves the icon along the edge's own path (referenced by id), so it follows
+// every curve, goes from source to target, and scales with zoom. No timers are involved.
+let iconBudget = 0; // icons left in the render in progress; 0 when motion is off or exporting
+
+function flowIcon(th, scale = 1) {
+  const s = n => r1(n * scale);
+  return `<path d="M${s(-5)},${s(-6.5)} H${s(1.5)} L${s(5)},${s(-3)} V${s(6.5)} H${s(-5)} Z" fill="${th.iconFill}" stroke="${th.iconOutline}" stroke-width="1.2" stroke-linejoin="round"/>`
+    + `<path d="M${s(1.5)},${s(-6.5)} V${s(-3)} H${s(5)}" fill="none" stroke="${th.iconOutline}" stroke-width="1"/>`;
+}
+
+// Approximate length of the drawn path through these waypoints
+function polyLength(pts) {
+  let len = 0;
+  for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+  return len;
+}
+
+// SMIL key times must not repeat: drop an entry when the next one has the same time
+function keyed(times, values) {
+  const t = [], v = [];
+  times.forEach((x, i) => { if (i + 1 < times.length && times[i + 1] <= x) return; t.push(x.toFixed(4)); v.push(values[i]); });
+  return { keyTimes: t.join(';'), values: v.join(';') };
+}
+
+// One icon on the path `pathId` (about `len` long). In each cycle of `cycle` seconds it is
+// visible and moving between the fractions `from` and `to` of the cycle, hidden otherwise.
+// It starts `start` px into the path and stops before the arrowhead.
+function flowIconSvg(pathId, len, { cycle, from = 0, to, delay = 0, start = 0, scale = 1 }) {
+  if (iconBudget <= 0 || !(len > 0)) return '';
+  iconBudget--;
+  const M = OmmViewer.FLOW_MOTION;
+  const p0 = Math.min(start / len, 0.4);
+  const p1 = Math.min(1, Math.max(p0 + 0.2, (len - M.stopBefore) / len));
+  const fade = Math.min(0.03, (to - from) / 5);
+  const move = keyed([0, from, to, 1], [p0, p0, p1, p1].map(p => p.toFixed(4)));
+  const show = keyed([0, from, from + fade, to - fade, to, 1], [0, 0, 1, 1, 0, 0]);
+  const timing = `dur="${r1(cycle)}s" begin="${r1(delay)}s" repeatCount="indefinite" calcMode="linear"`;
+  return `<g class="flow-icon" opacity="0">${flowIcon(theme(), scale)}`
+    + `<animateMotion ${timing} keyTimes="${move.keyTimes}" keyPoints="${move.values}"><mpath href="#${pathId}"/></animateMotion>`
+    + `<animate attributeName="opacity" ${timing} keyTimes="${show.keyTimes}" values="${show.values}"/></g>`;
+}
+
+// Icon for a flowchart edge: one trip, then a pause; edges start at staggered times
+function flowEdgeIcon(pathId, pts, speed, i) {
+  const M = OmmViewer.FLOW_MOTION;
+  const len = polyLength(pts);
+  const trip = OmmViewer.tripSeconds(len, speed);
+  const cycle = trip + M.pause;
+  return flowIconSvg(pathId, len, { cycle, to: trip / cycle, delay: (i * 0.45) % cycle, scale: 1.2 });
+}
+
 // ── node style ────────────────────────────────────────────
-function nodeStyle(node) {
-  const c = node.cls||'';
-  if (isDark) {
-    if (c==='external') return {bg:'#0a0a0a',border:'#666666',dash:null,text:'#cccccc'};
-    if (c==='lib')      return {bg:'#0a0a0a',border:'#666666',dash:null, text:'#cccccc'};
-    return                    {bg:'#0a0a0a',border:'#666666',dash:null, text:'#ffffff'};
-  } else {
-    if (c==='external') return {bg:'#e0e0e0',border:'#bbb',dash:null,text:'#64748b'};
-    if (c==='lib')      return {bg:'#e8e8e8',border:'#c0c0c0',dash:null, text:'#553388'};
-    return                    {bg:'#f0f0f0',border:'#999',    dash:null, text:'#1a1a1a'};
-  }
+// Colors come from src/lib/palette.ts. In monochrome mode the role is ignored and the
+// original styles are returned; in color mode the role (or the node's category class) picks them.
+function nodeStyle(node, role = 'neutral') {
+  return OmmViewer.nodeColors(colorMode, isDark ? 'dark' : 'light', role, node.cls);
 }
 
 // ── smooth path through all Dagre waypoints ───────────────
@@ -515,9 +657,10 @@ function nodeStyle(node) {
 function smoothPath(pts) {
   if (!pts || pts.length < 2) return '';
   if (pts.length === 2) {
-    // Simple S-curve for two-point edges
+    // Simple S-curve for two-point edges, leaving and entering along the main direction
     const [a, b] = pts;
     const mx = r1((a.x+b.x)/2), my = r1((a.y+b.y)/2);
+    if (Math.abs(b.y - a.y) > Math.abs(b.x - a.x)) return `M${r1(a.x)},${r1(a.y)} C${r1(a.x)},${my} ${r1(b.x)},${my} ${r1(b.x)},${r1(b.y)}`;
     return `M${r1(a.x)},${r1(a.y)} C${mx},${r1(a.y)} ${mx},${r1(b.y)} ${r1(b.x)},${r1(b.y)}`;
   }
   // Quadratic bezier spline: smooth through all waypoints
@@ -552,6 +695,7 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   const parsed = parseFlowchart(data.diagram);
   const {rankdir, nodes, subgraphs} = parsed;
   if (!nodes.length) return null;
+  const processFlowchart = OmmViewer.isProcessFlowchart(nodes.map(n => n.shape));
 
   // Lanes (subgraphs) that contain at least one node, directly or through a nested lane
   const laneOf = id => nodes.find(n => n.id === id)?.subgraph;
@@ -702,6 +846,16 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   // edges
   const ec = th.edgeColor0;
   svg += flowMarkerDefs(uid, ec);
+  const shapeEnd = (p, c, id) => {
+    const n = nodes.find(x => x.id === id);
+    return n && !subGroups[id] ? clipToShape(p, c, nodeDims[id].width, nodeDims[id].height, n.shape) : p;
+  };
+  // Unlabelled edges between the same two nodes get the same route from dagre; spread them apart
+  const pairKey = e => [e.from, e.to].sort().join('\u0000');
+  const parallel = {};
+  for (const e of edges) if (!e.label && e.style !== 'invisible') (parallel[pairKey(e)] ||= []).push(e);
+  let edgeLabels = ''; // drawn after every edge, so no line runs over a label
+  let edgeIcons = '';  // moving icons: above the lines, below labels and elements
   edges.forEach((e,i) => {
     if (_gridExcluded.has(e.from)) return; // skip edges from grid children
     if (e.style === 'invisible') return;   // ~~~ only affects layout
@@ -710,18 +864,37 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
     const tgtPos = _gridPositions[e.to] || g.node(e.to);
     if (!srcPos || !tgtPos) return;
     if (_gridPositions[e.to]) {
-      // Edge to grid child: direct path from parent to child grid position
-      const mx = (srcPos.x + tgtPos.x) / 2, my = (srcPos.y + tgtPos.y) / 2;
-      pts = [{x:srcPos.x,y:srcPos.y},{x:mx,y:my},{x:tgtPos.x,y:tgtPos.y}];
+      // Edge to grid child: a direct line between the two boxes, unless that line would cross
+      // another child. Then it runs along the gap left of the child's column and enters from the side.
+      const grid = Object.values(_gridGroups).find(gr => gr.children.includes(e.to));
+      const tw_ = nodeDims[e.to].width, th_ = nodeDims[e.to].height;
+      const b = boxEdge(tgtPos, srcPos, tw_, th_);
+      const a = boxEdge(srcPos, tgtPos, nodeDims[e.from].width, nodeDims[e.from].height);
+      const blocked = grid.children.some(id => id !== e.to && segmentHitsBox(a, b, _gridPositions[id], nodeDims[id].width, nodeDims[id].height));
+      if (blocked) {
+        const ys = grid.children.map(id => _gridPositions[id].y);
+        const above = srcPos.y < Math.min(...ys);
+        const entryY = above ? Math.min(...ys) - grid.cellH / 2 : Math.max(...ys) + grid.cellH / 2;
+        const gapX = tgtPos.x - grid.cellW / 2;
+        const start = boxEdge(srcPos, { x: gapX, y: entryY }, nodeDims[e.from].width, nodeDims[e.from].height);
+        pts = [shapeEnd(start, srcPos, e.from), { x: gapX, y: entryY }, { x: gapX, y: tgtPos.y }, { x: tgtPos.x - tw_ / 2, y: tgtPos.y }];
+        mid = { x: gapX, y: (entryY + tgtPos.y) / 2 };
+      } else {
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        pts = [shapeEnd(a, srcPos, e.from), {x:mx,y:my}, shapeEnd(b, tgtPos, e.to)];
+        mid = {x:mx, y:my};
+      }
       d = smoothPath(pts);
-      mid = {x:mx, y:my};
     } else {
       const ed = g.edge(e.from, e.to, 'e' + i); if (!ed?.points?.length) return;
       pts = ed.points.slice();
-      const shapeEnd = (p, q, id) => {
-        const n = nodes.find(x => x.id === id);
-        return n && !subGroups[id] ? clipToShape(p, q, nodeDims[id].width, nodeDims[id].height, n.shape) : p;
-      };
+      const group = !e.label && parallel[pairKey(e)];
+      if (group && group.length > 1 && pts.length > 2) {
+        const a = pts[0], b = pts[pts.length - 1], len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        const off = (group.indexOf(e) - (group.length - 1) / 2) * 16;
+        const nx = -(b.y - a.y) / len * off, ny = (b.x - a.x) / len * off;
+        for (let k = 1; k < pts.length - 1; k++) pts[k] = { x: pts[k].x + nx, y: pts[k].y + ny };
+      }
       pts[0] = shapeEnd(pts[0], srcPos, e.from);
       pts[pts.length - 1] = shapeEnd(pts[pts.length - 1], tgtPos, e.to);
       d = smoothPath(pts);
@@ -731,14 +904,18 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
     const dash = e.style === 'dotted' ? 'stroke-dasharray="3,4"' : '';
     const head = e.head && e.head !== 'none' ? `marker-end="url(#${uid}${e.head})"` : '';
     const tail = e.tail && e.tail !== 'none' ? `marker-start="url(#${uid}${e.tail})"` : '';
-    svg += `<path class="edge-path" d="${d}" stroke="${ec}" stroke-width="${width}" fill="none" ${dash} ${head} ${tail} data-from="${esc(e.from)}" data-to="${esc(e.to)}"/>`;
+    const speed = iconBudget > 0 ? OmmViewer.edgeMotion(e, processFlowchart) : null;
+    const pathId = speed ? ` id="${uid}p${i}"` : '';
+    svg += `<path class="edge-path"${pathId} d="${d}" stroke="${ec}" stroke-width="${width}" fill="none" ${dash} ${head} ${tail} data-from="${esc(e.from)}" data-to="${esc(e.to)}"/>`;
+    if (speed) edgeIcons += flowEdgeIcon(`${uid}p${i}`, pts, speed, i);
     if (e.label) {
-      const lw = tw(e.label,'10px Inter')+10;
+      const lw = tw(e.label,'10px Inter')+12;
       const mx=r1(mid.x), my=r1(mid.y);
-      svg += `<g class="edge-label"><rect x="${r1(mx-lw/2)}" y="${my-7}" width="${lw}" height="14" rx="3" fill="${th.edgeLabelBg}"/>
+      edgeLabels += `<g class="edge-label"><rect x="${r1(mx-lw/2)}" y="${my-8}" width="${lw}" height="16" rx="3" fill="${th.edgeLabelBg}"/>
         <text x="${mx}" y="${my+3.5}" text-anchor="middle" font-family="Inter,system-ui" font-size="10" fill="${th.edgeLabelText}">${esc(e.label)}</text></g>`;
     }
   });
+  svg += edgeIcons + edgeLabels;
 
   // nodes
   for (const n of nodes) {
@@ -773,7 +950,7 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
         font-family="&quot;Plus Jakarta Sans&quot;,Inter,system-ui" font-size="9" font-weight="600" fill="${th.grpLabelCenterFill}" letter-spacing="0.05em">${esc(fmtLabel(sg.cls))}</text>`;
     } else {
       // ── regular node ──
-      const st = nodeStyle(n);
+      const st = nodeStyle(n, OmmViewer.flowNodeRole(n.shape, processFlowchart));
       const nodeScopedId = esc(scopedPath + '/' + n.id);
       const shape = flowShapeSvg(n.shape, nx, ny, dim.width, dim.height, st);
       const label = flowLabelSvg(dim.text, pos.x, pos.y, st, n.shape);
@@ -797,7 +974,7 @@ function renderErGroup(text, scopedPath) {
   const PAD_L = 16, PAD_R = 20, PAD_T = 20, PAD_B = 16;
   const HEAD_H = 26, ROW_H = 18, CELL_PAD = 10;
   const th = theme();
-  const st = nodeStyle({});
+  const st = nodeStyle({}), hd = nodeStyle({}, 'entity'); // hd: entity header (same as st in monochrome)
   const headFont = '600 12px Inter,system-ui', rowFont = '11px Inter,system-ui', monoFont = "10px 'SF Mono','Fira Code',monospace";
 
   // Measure entity boxes
@@ -830,7 +1007,8 @@ function renderErGroup(text, scopedPath) {
   const W = r1(gi.width + PAD_R), H = r1(gi.height + PAD_B);
   let svg = '';
 
-  // Relationships
+  // Relationships; their text is drawn after every line, so no line runs over it
+  let relLabels = '';
   er.relationships.forEach((r, i) => {
     const ed = g.edge(r.from, r.to, 'r' + i);
     if (!ed?.points?.length) return;
@@ -844,15 +1022,16 @@ function renderErGroup(text, scopedPath) {
       const x = r1(p.x + (dx / len) * 20 + (-dy / len) * 11), y = r1(p.y + (dy / len) * 20 + (dx / len) * 11);
       return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui" font-size="9" font-weight="600" fill="${th.edgeLabelText}">${esc(OmmViewer.cardinalityText(marker))}</text>`;
     };
-    svg += endLabel(pts[0], pts[1], r.fromCard);
-    svg += endLabel(pts[pts.length - 1], pts[pts.length - 2], r.toCard);
+    relLabels += endLabel(pts[0], pts[1], r.fromCard);
+    relLabels += endLabel(pts[pts.length - 1], pts[pts.length - 2], r.toCard);
     if (r.label) {
       const mid = pts[Math.floor(pts.length / 2)];
       const lw = tw(r.label, '9px Inter') + 8, mx = r1(mid.x), my = r1(mid.y);
-      svg += `<g class="edge-label"><rect x="${mx - lw / 2}" y="${my - 6}" width="${lw}" height="12" rx="2" fill="${th.edgeLabelBg}"/>
+      relLabels += `<g class="edge-label"><rect x="${mx - lw / 2}" y="${my - 6}" width="${lw}" height="12" rx="2" fill="${th.edgeLabelBg}"/>
         <text x="${mx}" y="${my + 3}" text-anchor="middle" font-family="Inter,system-ui" font-size="9" fill="${th.edgeLabelText}">${esc(r.label)}</text></g>`;
     }
   });
+  svg += relLabels;
 
   // Entities
   for (const ent of entities) {
@@ -860,9 +1039,11 @@ function renderErGroup(text, scopedPath) {
     const { width: w, height: h, keyW, typeW } = dims[ent.name];
     const x = r1(pos.x - w / 2), y = r1(pos.y - h / 2);
     const id = esc(scopedPath + '/' + ent.name);
-    let body = `<rect class="nshape" x="${x}" y="${y}" width="${r1(w)}" height="${r1(h)}" rx="4" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>`;
-    body += `<path d="M${x},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${st.border}" stroke-width="1"/>`;
-    body += `<text class="node-lbl" x="${r1(pos.x)}" y="${r1(y + HEAD_H / 2)}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="${st.text}">${esc(ent.alias || ent.name)}</text>`;
+    let body = `<rect class="nshape" x="${x}" y="${y}" width="${r1(w)}" height="${r1(h)}" rx="4" fill="${st.bg}" stroke="${hd.border}" stroke-width="2"/>`;
+    // Color mode: tinted header band (rows stay neutral)
+    if (hd.bg !== st.bg) body += `<path d="M${r1(x + 1)},${r1(y + HEAD_H)} V${r1(y + 4)} Q${r1(x + 1)},${r1(y + 1)} ${r1(x + 4)},${r1(y + 1)} H${r1(x + w - 4)} Q${r1(x + w - 1)},${r1(y + 1)} ${r1(x + w - 1)},${r1(y + 4)} V${r1(y + HEAD_H)} Z" fill="${hd.bg}"/>`;
+    body += `<path d="M${x},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${hd.border}" stroke-width="1"/>`;
+    body += `<text class="node-lbl" x="${r1(pos.x)}" y="${r1(y + HEAD_H / 2)}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="${hd.text}">${esc(ent.alias || ent.name)}</text>`;
     ent.attributes.forEach((a, i) => {
       const ry = r1(y + HEAD_H + 3 + ROW_H * i + ROW_H / 2);
       let cx = x + CELL_PAD;
@@ -899,6 +1080,10 @@ function renderSeqGroup(text, scopedPath) {
   const PAD_L = 16, PAD_R = 20, PAD_T = 16, PAD_B = 16;
   const HEAD_H = 34, GAP = 36, SELF_W = 30, NOTE_PAD = 8, ACT_W = 10;
   const th = theme(), st = nodeStyle({}), ec = th.edgeColor0;
+  // Color mode: participants, activation bars and notes get their own colors
+  // (in monochrome these equal st, or the shared note tokens)
+  const pst = nodeStyle({}, 'participant'), ast = nodeStyle({}, 'activation');
+  const noteSt = colorMode === 'color' ? nodeStyle({}, 'note') : { bg: th.subFill, border: th.subStroke };
   const msgFont = '11px Inter,system-ui', headFont = '600 12px Inter,system-ui';
   const name = p => p.label || p.id;
 
@@ -954,12 +1139,16 @@ function renderSeqGroup(text, scopedPath) {
   };
 
   const uid = 'sq' + Math.random().toString(36).slice(2, 7);
-  const defs = `<defs><marker id="${uid}f" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L8,3 L0,6 z" fill="${ec}"/></marker>
-    <marker id="${uid}a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M0,0 L7,4 L0,8" fill="none" stroke="${ec}" stroke-width="1.5"/></marker></defs>`;
-  const text_ = (x, y, s, anchor = 'middle', extra = '') =>
-    `<text x="${r1(x)}" y="${r1(y)}" text-anchor="${anchor}" dominant-baseline="central" font-family="Inter,system-ui" font-size="11" fill="${st.text}" ${extra}>${esc(s)}</text>`;
+  const defs = `<defs>${arrowMarker(uid + 'f', ec)}${arrowMarker(uid + 'a', ec, true)}</defs>`;
+  // `extra` may override fill and font-size; an attribute must not appear twice (exported SVG is strict XML)
+  const text_ = (x, y, s, anchor = 'middle', extra = '') => {
+    const size = /\bfont-size=/.test(extra) ? '' : 'font-size="11"';
+    const fill = /\bfill=/.test(extra) ? '' : `fill="${st.text}"`;
+    return `<text x="${r1(x)}" y="${r1(y)}" text-anchor="${anchor}" dominant-baseline="central" font-family="Inter,system-ui" ${size} ${fill} ${extra}>${esc(s)}</text>`;
+  };
 
   let bands = '', frames = '', fore = '';
+  const moving = []; // messages that get a moving icon, in diagram order
   let y = PAD_T + HEAD_H + 12; // top of the next row
   let num = 0;
 
@@ -976,7 +1165,9 @@ function renderSeqGroup(text, scopedPath) {
       const head = style.head === 'filled' ? `marker-end="url(#${uid}f)"` : style.head === 'async' ? `marker-end="url(#${uid}a)"` : '';
       const tail = style.bidirectional ? `marker-start="url(#${uid}f)"` : '';
       const d = self ? `M${r1(x1)},${ly} H${r1(x1 + SELF_W)} V${ly + 14} H${r1(x2)}` : `M${r1(x1)},${ly} H${r1(x2)}`;
-      fore += `<path class="edge-path" d="${d}" stroke="${ec}" stroke-width="1.5" fill="none" ${dash} ${head} ${tail} data-from="${esc(e.from)}" data-to="${esc(e.to)}"/>`;
+      const pathId = iconBudget > 0 ? `${uid}m${moving.length}` : '';
+      if (pathId) moving.push({ pathId, len: self ? SELF_W * 2 + 14 : Math.abs(x2 - x1), start: seq.autonumber ? 10 : 0 });
+      fore += `<path class="edge-path"${pathId ? ` id="${pathId}"` : ''} d="${d}" stroke="${ec}" stroke-width="1.5" fill="none" ${dash} ${head} ${tail} data-from="${esc(e.from)}" data-to="${esc(e.to)}"/>`;
       if (style.head === 'cross') {
         const cx2 = self ? x2 : x2 + (right ? -4 : 4), cy2 = self ? ly + 14 : ly;
         fore += `<path d="M${r1(cx2 - 4)},${cy2 - 4} L${r1(cx2 + 4)},${cy2 + 4} M${r1(cx2 - 4)},${cy2 + 4} L${r1(cx2 + 4)},${cy2 - 4}" stroke="${ec}" stroke-width="1.5"/>`;
@@ -998,13 +1189,13 @@ function renderSeqGroup(text, scopedPath) {
         const xs = e.participants.map(X), a = Math.min(...xs), b = Math.max(...xs);
         const nw = Math.max(w, b - a + 40);
         nx1 = (a + b) / 2 - nw / 2;
-        fore += `<rect x="${r1(nx1)}" y="${y + 4}" width="${r1(nw)}" height="26" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1"/>`;
+        fore += `<rect x="${r1(nx1)}" y="${y + 4}" width="${r1(nw)}" height="26" rx="3" fill="${noteSt.bg}" stroke="${noteSt.border}" stroke-width="1"/>`;
         fore += text_(nx1 + nw / 2, y + 17, e.text);
         touch(nx1, nx1 + nw);
       } else {
         const px = X(e.participants[0]);
         nx1 = e.placement === 'right of' ? px + 10 : px - 10 - w;
-        fore += `<rect x="${r1(nx1)}" y="${y + 4}" width="${r1(w)}" height="26" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1"/>`;
+        fore += `<rect x="${r1(nx1)}" y="${y + 4}" width="${r1(w)}" height="26" rx="3" fill="${noteSt.bg}" stroke="${noteSt.border}" stroke-width="1"/>`;
         fore += text_(nx1 + w / 2, y + 17, e.text);
         touch(nx1, nx1 + w);
       }
@@ -1061,20 +1252,33 @@ function renderSeqGroup(text, scopedPath) {
     if (p.kind === 'actor') {
       const t = PAD_T;
       shape = `<rect x="${r1(x - w / 2)}" y="${t}" width="${r1(w)}" height="${HEAD_H}" fill="transparent"/>
-        <g stroke="${st.border}" stroke-width="1.5" fill="none"><circle cx="${r1(x)}" cy="${t + 5}" r="4.5"/>
+        <g stroke="${pst.border}" stroke-width="1.5" fill="none"><circle cx="${r1(x)}" cy="${t + 5}" r="4.5"/>
         <path d="M${r1(x)},${t + 9.5} V${t + 17} M${r1(x - 7)},${t + 12.5} H${r1(x + 7)} M${r1(x)},${t + 17} l-5,6 M${r1(x)},${t + 17} l5,6"/></g>
         <text class="node-lbl" x="${r1(x)}" y="${t + 30}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="11" font-weight="600" fill="${st.text}">${esc(name(p))}</text>`;
     } else {
-      shape = `<rect class="nshape" x="${r1(x - w / 2)}" y="${PAD_T}" width="${r1(w)}" height="${HEAD_H}" rx="4" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>
-        <text class="node-lbl" x="${r1(x)}" y="${PAD_T + HEAD_H / 2}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="${st.text}">${esc(name(p))}</text>`;
+      shape = `<rect class="nshape" x="${r1(x - w / 2)}" y="${PAD_T}" width="${r1(w)}" height="${HEAD_H}" rx="4" fill="${pst.bg}" stroke="${pst.border}" stroke-width="2"/>
+        <text class="node-lbl" x="${r1(x)}" y="${PAD_T + HEAD_H / 2}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600" fill="${pst.text}">${esc(name(p))}</text>`;
     }
     heads += `<g class="reg-node seq-participant" data-cls="${pid}" onclick="event.stopPropagation();window.__openSb('${pid}')">${shape}</g>`;
   });
-  const bars = actBoxes.map(b => `<rect x="${r1(b.x)}" y="${r1(b.y1)}" width="${ACT_W}" height="${r1(Math.max(6, b.y2 - b.y1))}" fill="${st.bg}" stroke="${st.border}" stroke-width="1.5"/>`).join('');
+  const bars = actBoxes.map(b => `<rect x="${r1(b.x)}" y="${r1(b.y1)}" width="${ACT_W}" height="${r1(Math.max(6, b.y2 - b.y1))}" fill="${ast.bg}" stroke="${ast.border}" stroke-width="1.5"/>`).join('');
 
   const dx = PAD_L - minX;
   const W = r1(maxX - minX + PAD_L + PAD_R), H = r1(bottom + PAD_B);
-  const svg = `${defs}<g transform="translate(${r1(dx)},0)">${bands}${lanes}${frames}${bars}${fore}${heads}</g>`;
+  // Flow motion: one message at a time, in diagram order, then the sequence starts again
+  let icons = '';
+  if (moving.length) {
+    const M = OmmViewer.FLOW_MOTION;
+    const trips = moving.map(m => OmmViewer.tripSeconds(m.len, 'normal'));
+    const cycle = trips.reduce((s, t) => s + t + M.messageGap, 0) + M.pause;
+    let t = 0;
+    moving.forEach((m, i) => {
+      icons += flowIconSvg(m.pathId, m.len, { cycle, from: t / cycle, to: (t + trips[i]) / cycle, start: m.start, scale: 0.85 });
+      t += trips[i] + M.messageGap;
+    });
+  }
+
+  const svg = `${defs}<g transform="translate(${r1(dx)},0)">${bands}${lanes}${frames}${bars}${fore}${icons}${heads}</g>`;
   return { svgContent: svg, W, H, labelOverlay: '' };
 }
 
@@ -1088,6 +1292,12 @@ function renderStateGroup(text, scopedPath) {
   if (!all.length) return null;
 
   const th = theme(), st = nodeStyle({}), ec = th.edgeColor0;
+  // Color mode: states, choices, notes and composite states get their own colors;
+  // in monochrome these equal st, or the shared note/group tokens below
+  const color = colorMode === 'color';
+  const sst = nodeStyle({}, 'state'), cst = nodeStyle({}, 'decision');
+  const noteSt = color ? nodeStyle({}, 'note') : { bg: th.subFill, border: th.subStroke };
+  const compSt = color ? nodeStyle({}, 'composite') : { bg: th.subFill, border: th.subStroke };
   const uid = 'st' + Math.random().toString(36).slice(2, 7);
   const rankdir = sd.direction;
   const horizontal = rankdir === 'LR' || rankdir === 'RL';
@@ -1111,7 +1321,7 @@ function renderStateGroup(text, scopedPath) {
     lifted.push({ scope: k ? a[k - 1] : null, from: a[k], to: b[k], label: t.label });
   }
 
-  const marker = `<defs><marker id="${uid}m" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L7,3 L0,6 z" fill="${ec}"/></marker></defs>`;
+  const marker = `<defs>${arrowMarker(uid + 'm', ec)}</defs>`;
   const txt = (x, y, s, extra = '') =>
     `<text x="${r1(x)}" y="${r1(y)}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui" fill="${st.text}" ${extra}>${esc(s)}</text>`;
 
@@ -1159,16 +1369,18 @@ function renderStateGroup(text, scopedPath) {
       if (!a || !b) return;
       svg += `<path d="M${r1(a.x)},${r1(a.y)} L${r1(b.x)},${r1(b.y)}" stroke="${th.subStroke}" stroke-width="1" stroke-dasharray="3,3"/>`;
     });
+    let edgeLabels = ''; // after every transition, so no line runs over a label
     edges.forEach((e, i) => {
       const ed = g.edge(e.from, e.to, 'e' + i);
       if (!ed?.points?.length) return;
       svg += `<path class="edge-path" d="${smoothPath(ed.points)}" stroke="${ec}" stroke-width="1.5" fill="none" marker-end="url(#${uid}m)" data-from="${esc(e.from)}" data-to="${esc(e.to)}"/>`;
       if (e.label && ed.x !== undefined) {
         const lw = tw(e.label, labelFont) + 8;
-        svg += `<g class="edge-label"><rect x="${r1(ed.x - lw / 2)}" y="${r1(ed.y - 6)}" width="${lw}" height="12" rx="2" fill="${th.edgeLabelBg}"/>
+        edgeLabels += `<g class="edge-label"><rect x="${r1(ed.x - lw / 2)}" y="${r1(ed.y - 6)}" width="${lw}" height="12" rx="2" fill="${th.edgeLabelBg}"/>
           <text x="${r1(ed.x)}" y="${r1(ed.y + 3)}" text-anchor="middle" font-family="Inter,system-ui" font-size="9" fill="${th.edgeLabelText}">${esc(e.label)}</text></g>`;
       }
     });
+    svg += edgeLabels;
 
     for (const s of states) {
       const p = g.node(s.id);
@@ -1190,18 +1402,18 @@ function renderStateGroup(text, scopedPath) {
       const pid = esc(scopedPath + '/' + s.id);
       let body;
       if (s.kind === 'choice') {
-        body = `<polygon class="nshape" points="${r1(p.x)},${r1(y)} ${r1(x + w)},${r1(p.y)} ${r1(p.x)},${r1(y + h)} ${r1(x)},${r1(p.y)}" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>`;
+        body = `<polygon class="nshape" points="${r1(p.x)},${r1(y)} ${r1(x + w)},${r1(p.y)} ${r1(p.x)},${r1(y + h)} ${r1(x)},${r1(p.y)}" fill="${cst.bg}" stroke="${cst.border}" stroke-width="2"/>`;
       } else if (s.composite) {
         const sub = inner[s.id];
-        body = `<rect class="nshape" x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="10" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="2"/>`;
-        body += `<path d="M${r1(x)},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${th.subStroke}" stroke-width="1"/>`;
+        body = `<rect class="nshape" x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="10" fill="${compSt.bg}" stroke="${compSt.border}" stroke-width="2"/>`;
+        body += `<path d="M${r1(x)},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${compSt.border}" stroke-width="1"/>`;
         body += txt(p.x, y + HEAD_H / 2, name(s), 'class="node-lbl" font-size="12" font-weight="600"');
         body += `<g transform="translate(${r1(p.x - sub.W / 2)},${r1(y + HEAD_H + 4)})">${sub.svg}</g>`;
       } else {
-        body = `<rect class="nshape" x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="10" fill="${st.bg}" stroke="${st.border}" stroke-width="2"/>`;
+        body = `<rect class="nshape" x="${r1(x)}" y="${r1(y)}" width="${r1(w)}" height="${r1(h)}" rx="10" fill="${sst.bg}" stroke="${sst.border}" stroke-width="2"/>`;
         body += txt(p.x, y + HEAD_H / 2, name(s), 'class="node-lbl" font-size="12" font-weight="600"');
         if (s.descriptions.length) {
-          body += `<path d="M${r1(x)},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${st.border}" stroke-width="1"/>`;
+          body += `<path d="M${r1(x)},${r1(y + HEAD_H)} H${r1(x + w)}" stroke="${sst.border}" stroke-width="1"/>`;
           s.descriptions.forEach((d, i) => { body += txt(p.x, y + HEAD_H + 3 + ROW_H * i + ROW_H / 2, d, 'font-size="11" opacity="0.75"'); });
         }
       }
@@ -1212,7 +1424,7 @@ function renderStateGroup(text, scopedPath) {
       const b = g.node('__note' + i);
       if (!b) return;
       const { lines, width: w, height: h } = noteDims[i];
-      svg += `<rect x="${r1(b.x - w / 2)}" y="${r1(b.y - h / 2)}" width="${w}" height="${h}" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1" stroke-dasharray="4,3"/>`;
+      svg += `<rect x="${r1(b.x - w / 2)}" y="${r1(b.y - h / 2)}" width="${w}" height="${h}" rx="3" fill="${noteSt.bg}" stroke="${noteSt.border}" stroke-width="1" stroke-dasharray="4,3"/>`;
       lines.forEach((l, j) => { svg += txt(b.x, b.y - h / 2 + 5 + ROW_H * j + ROW_H / 2, l, 'font-size="11"'); });
     });
 
@@ -1679,8 +1891,9 @@ function clearFocusExempt() {
 window.closeSidebar=closeSidebar;
 
 // ── build full canvas SVG ─────────────────────────────────
-function buildCanvas(classes, classesData, refsData) {
+function buildCanvas(classes, classesData, refsData, { still = false } = {}) {
   _expandedGlobal = new Set(); // reset per render
+  iconBudget = still || !motionOn() ? 0 : OmmViewer.FLOW_MOTION.maxIcons;
   // Find top-level classes: those with no incoming @refs from other classes
   // Build outgoing ref counts to handle circular references
   const outCount = {}; // cls -> number of outgoing @refs to other classes
@@ -1816,6 +2029,7 @@ function exportSvg() {
   const PAD = 24, TITLE_H = 34;
   let W, H, body;
   _expandedGlobal = new Set();
+  iconBudget = 0; // exports are static
   if (cls) {
     const g = renderGroup(cls, classesData, classes, 0);
     if (!g) return null;
@@ -1823,7 +2037,7 @@ function exportSvg() {
     body = `<text x="${PAD}" y="${PAD + 14}" font-family="Inter,system-ui,sans-serif" font-size="16" font-weight="600" fill="${fg}">${esc(fmtLabel(cls))}</text>
       <g transform="translate(${PAD},${PAD + TITLE_H})">${g.svgContent}</g>`;
   } else {
-    const r = buildCanvas(classes, classesData, refsData);
+    const r = buildCanvas(classes, classesData, refsData, { still: true });
     if (!r) return null;
     W = r.W; H = r.H;
     body = r.html.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
@@ -2070,6 +2284,8 @@ async function loadSubNodeData(perspective, subPath, shortName) {
 async function init() {
   applyTheme();
   applyClean();
+  applyFlowMotion();
+  applyColorMode();
   classes = await api('/api/classes');
   if (!classes.length) {
     canvasEl.innerHTML=`<div class="empty-state" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)"><p>No perspectives found.<br>Run <code>/omm-scan</code> in Claude Code.</p></div>`;
