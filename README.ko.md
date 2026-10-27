@@ -22,23 +22,38 @@
 
 ## 빠른 시작
 
-터미널에 붙여넣기:
+Node.js 18 이상과 Git이 필요합니다.
+
+**1. CLI를 설치하고 스킬을 등록합니다.** 터미널에 붙여넣기:
 
 ```bash
 npm install -g github:al-kheder/omm && omm setup
 ```
 
-AI 코딩 도구를 열고 `/omm-scan` 스킬을 실행:
+npm 12 이상에서는 설치 명령에 `--allow-git=all`을 추가하세요. npm 12는 기본적으로 GitHub에서의 설치를 차단합니다.
+
+`omm setup`은 찾은 모든 AI 도구에 스킬을 등록합니다([지원 AI 도구](#지원-ai-도구) 참고). Claude Code는 `claude` 명령이 설치되어 있을 때만 찾습니다. VS Code 확장이나 데스크톱 앱만 사용한다면 Claude Code 안에서 플러그인을 추가하세요:
+
+```
+/plugin marketplace add al-kheder/omm
+/plugin install oh-my-mermaid@al-kheder-omm
+```
+
+**2. 코드베이스를 스캔합니다.** 프로젝트에서 AI 코딩 도구를 열고 실행:
 
 ```
 /omm-scan
 ```
 
-끝. 결과 보기:
+Claude Code에서는 스킬이 `/oh-my-mermaid:omm-scan`으로 표시됩니다. 스캔 결과는 프로젝트의 `.omm/`에 저장됩니다.
+
+**3. 결과를 봅니다.** 프로젝트 폴더에서 실행:
 
 ```bash
 omm view
 ```
+
+그런 다음 http://localhost:3000 을 엽니다. 다른 포트는 `--port <n>`으로 지정하세요. 뷰어는 내 컴퓨터에서 오는 연결만 받으며, `.omm/`이 바뀌면 실시간으로 갱신됩니다. 도구 모음의 **clean**은 파일 경로를 숨기고, **svg** / **png**는 선택한 다이어그램을 내려받습니다. 예를 들어 고객용 슬라이드에 넣을 때 사용합니다.
 
 ## 예시
 
@@ -76,7 +91,7 @@ AI가 코드베이스를 분석하고 **관점(perspective)** 을 생성합니�
 
 각 element는 최대 7개 필드를 가집니다: `description`, `diagram`, `context`, `constraint`, `concern`, `todo`, `note`.
 
-다이어그램은 플로우차트(`graph` / `flowchart`) 또는 데이터베이스 스키마 같은 데이터 모델을 위한 ER 다이어그램(`erDiagram`)입니다. 두 형식 모두 `omm validate`로 검증되고 뷰어에서 렌더링됩니다.
+다이어그램은 플로우차트(`graph` / `flowchart`), 데이터베이스 스키마 같은 데이터 모델을 위한 ER 다이어그램(`erDiagram`), 요청이나 프로토콜의 호출 순서를 위한 시퀀스 다이어그램(`sequenceDiagram`), 또는 생명주기와 상태 머신을 위한 상태 다이어그램(`stateDiagram-v2`)입니다. 네 형식 모두 `omm validate`로 검증되고 뷰어에서 렌더링됩니다. 플로우차트는 비기술 독자를 위한 프로세스 다이어그램으로도 쓸 수 있습니다: 시작/종료, 단계, 예/아니오 결정, 입력/출력, 문서, 하위 프로세스, 역할별 레인(`subgraph`).
 
 ## CLI
 
