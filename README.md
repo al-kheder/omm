@@ -51,7 +51,7 @@ In Claude Code the skill appears as `/oh-my-mermaid:omm-scan`. The scan writes t
 omm view
 ```
 
-Then open http://localhost:3000. Use `--port <n>` to pick another port. The viewer only accepts connections from your own machine and updates live as `.omm/` changes. In the toolbar, **clean** hides file paths, and **svg** / **png** download the selected diagram, for example to put in slides for a client. **mono | color** switches between the black-and-white look and colors that show what each element is (start/end, decision, data store …).
+Then open http://localhost:3000. Use `--port <n>` to pick another port. The viewer only accepts connections from your own machine and updates live as `.omm/` changes. In the toolbar, **clean** hides file paths, and **svg** / **png** download the selected diagram, for example to put in slides for a client. **mono | color** switches between the black-and-white look and colors that show what each element is (start/end, decision, data store …). **flow** shows a small file icon moving along the arrows that carry data or work, to show how a process runs.
 
 ## Example
 

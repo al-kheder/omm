@@ -55,6 +55,7 @@ If the user wants to share or present a diagram, tell them about the toolbar in 
 
 - **mono | color** switches between the original black-and-white look and colors that show what each element is (start/end, decision, input/output, data store, external service …). The choice is remembered.
 - **clean** hides the file paths under element names (useful for clients and other non-technical readers)
+- **flow** shows a small file icon moving along the arrows that carry something: every arrow of a process flowchart, every message of a sequence diagram (in order), and architecture edges marked `e1@{ animate: true }`. It is off by default, remembered, turned off when the system asks for reduced motion, and never part of a download.
 - **svg** / **png** download the selected perspective, or every perspective when none is selected
 - **○** switches between the dark and light theme; the download uses the current theme
 

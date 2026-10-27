@@ -62,6 +62,12 @@ export interface FlowEdge {
   /** Rank distance: 1 for `-->`, 2 for `--->` … */
   length: number;
   line: number;
+  /** Edge ID from `a e1@--> b` */
+  id?: string;
+  /** From `e1@{ animate: true }`; undefined when not written */
+  animate?: boolean;
+  /** From `e1@{ animation: fast }` */
+  animation?: 'fast' | 'slow';
 }
 
 export interface FlowSubgraph {
@@ -291,10 +297,20 @@ function readNodeGroup(s: string): { nodes: NodeRef[]; length: number } | null {
   }
 }
 
-/** Read an arrow (with optional |label| or inline text). Returns the normalized arrow and its label. */
-function readArrow(s: string): { arrow: string; label: string; length: number } | null {
-  const lead = s.length - s.trimStart().length;
+/**
+ * Read an arrow (with an optional `id@` before it and an optional |label| or inline text).
+ * Returns the normalized arrow, its label and its ID.
+ */
+function readArrow(s: string): { arrow: string; label: string; length: number; id?: string } | null {
+  let lead = s.length - s.trimStart().length;
   let rest = s.slice(lead);
+  // `a e1@--> b`: an edge ID needs whitespace before it, or it is part of the source ID
+  const edgeId = lead > 0 ? rest.match(/^([A-Za-z_][\w-]*)@(?=[-=.~<ox])/) : null;
+  if (edgeId) {
+    lead += edgeId[0].length;
+    rest = rest.slice(edgeId[0].length);
+  }
+  const id = edgeId?.[1];
   // `o--o` and `x--x`: a circle or cross at the start needs whitespace before it, or it is part of an ID
   let startHead = '';
   if (lead > 0 && /^[ox](?=[-=])/.test(rest) && ARROW.test(rest.slice(1))) {
@@ -308,7 +324,7 @@ function readArrow(s: string): { arrow: string; label: string; length: number } 
     const close = inline[3];
     // "-- text -->" is the same edge type as "-->"; "-. text .->" as "-.->"
     const arrow = startHead + (inline[0].startsWith('<') ? '<' : '') + (open === '-.' ? `-${close}` : close);
-    return { arrow, label: cleanFlowLabel(inline[2]).replace(/\n/g, ' '), length: offset + inline[0].length };
+    return { arrow, label: cleanFlowLabel(inline[2]).replace(/\n/g, ' '), length: offset + inline[0].length, id };
   }
   const plain = rest.match(ARROW);
   if (!plain) return null;
@@ -319,7 +335,30 @@ function readArrow(s: string): { arrow: string; label: string; length: number } 
     length += pipe[0].length;
     label = cleanFlowLabel(pipe[1]).replace(/\n/g, ' ');
   }
-  return { arrow: startHead + plain[0], label, length };
+  return { arrow: startHead + plain[0], label, length, id };
+}
+
+const EDGE_SETTINGS = /^([A-Za-z_][\w-]*)@\{([\s\S]*)\}$/;
+
+/**
+ * Settings from `e1@{ animate: true }` or `e1@{ animation: slow }`. Returns null when the
+ * block has other keys (then it is a node shape such as `doc@{ shape: doc }`).
+ */
+function parseEdgeSettings(body: string): Pick<FlowEdge, 'animate' | 'animation'> | null {
+  const out: Pick<FlowEdge, 'animate' | 'animation'> = {};
+  const parts = body.split(/[,\n]/).map(p => p.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  for (const part of parts) {
+    const m = part.match(/^(\w+)\s*:\s*["']?(\w+)["']?$/);
+    if (!m) return null;
+    const value = m[2].toLowerCase();
+    if (m[1] === 'animate') out.animate = value === 'true';
+    else if (m[1] === 'animation') {
+      if (value === 'fast' || value === 'slow') out.animation = value;
+      out.animate ??= true;
+    } else if (m[1] !== 'curve') return null;
+  }
+  return out;
 }
 
 function headOf(ch: string | undefined): FlowHead {
@@ -349,6 +388,7 @@ export function parseFlowchart(text: string): Flowchart {
   const stack: string[] = [];
   const explicit = new Set<string>(); // nodes with a written shape or label
   const classOf = new Map<string, string>();
+  const settingsOf: { id: string; settings: Pick<FlowEdge, 'animate' | 'animation'>; line: number }[] = [];
 
   const touch = (ref: NodeRef, line: number): string => {
     const isRefId = ref.rawId.startsWith('@');
@@ -420,6 +460,13 @@ export function parseFlowchart(text: string): Flowchart {
       continue;
     }
 
+    const settings = s.match(EDGE_SETTINGS);
+    const edgeSettings = settings && parseEdgeSettings(settings[2]);
+    if (settings && edgeSettings) {
+      settingsOf.push({ id: settings[1], settings: edgeSettings, line });
+      continue;
+    }
+
     // Node and edge statements: a node group, then any number of arrow + node group
     const unreadable = (rest: string) => /[[({]/.test(rest)
       ? `Could not read node shape (unclosed bracket?): ${s}`
@@ -445,7 +492,9 @@ export function parseFlowchart(text: string): Flowchart {
       const nextIds = next.nodes.map(n => touch(n, line));
       for (const from of ids) {
         for (const to of nextIds) {
-          fc.edges.push({ from, to, label: arrow.label, arrow: arrow.arrow, ...arrowStyle(arrow.arrow), line });
+          const edge: FlowEdge = { from, to, label: arrow.label, arrow: arrow.arrow, ...arrowStyle(arrow.arrow), line };
+          if (arrow.id) edge.id = arrow.id;
+          fc.edges.push(edge);
         }
       }
       ids = nextIds;
@@ -462,6 +511,13 @@ export function parseFlowchart(text: string): Flowchart {
   for (const [id, c] of classOf) {
     const node = fc.nodes.get(id);
     if (node) node.cls = c;
+  }
+
+  // Edge settings may come before or after the edge they name
+  for (const { id, settings, line } of settingsOf) {
+    const named = fc.edges.filter(e => e.id === id);
+    if (!named.length) fc.errors.push({ line, message: `No edge with ID ${id} (write it as: a ${id}@--> b)` });
+    for (const e of named) Object.assign(e, settings);
   }
 
   // An edge to a subgraph ID links to the subgraph, not to a new node
