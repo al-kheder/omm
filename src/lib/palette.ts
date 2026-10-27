@@ -146,6 +146,20 @@ export function colorSwatches(theme: DiagramThemeName): Record<string, Swatch> {
   return { ...COLOR[theme] };
 }
 
+export interface EdgeColors { line: string; labelBg: string; labelText: string }
+
+// Edges stay neutral in both color modes. Lines and arrowheads keep at least 3:1 against
+// the backgrounds they cross; label text keeps 4.5:1 on its label background.
+const EDGES: Record<DiagramThemeName, EdgeColors> = {
+  dark: { line: '#909090', labelBg: '#000000', labelText: '#aaaaaa' },
+  light: { line: '#64748b', labelBg: '#e8e8e8', labelText: '#475569' },
+};
+
+/** Line, arrowhead and label colors for edges */
+export function edgeColors(theme: DiagramThemeName): EdgeColors {
+  return { ...EDGES[theme] };
+}
+
 // --- WCAG contrast (used by tests) ---
 
 function channel(c: number): number {

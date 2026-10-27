@@ -5,4 +5,4 @@ export { parseErDiagram, cardinalityText } from '../lib/er.js';
 export { parseSequenceDiagram, messageStyle } from '../lib/sequence.js';
 export { parseStateDiagram, stateDisplayId } from '../lib/state.js';
 export { parseFlowchart } from '../lib/flowchart.js';
-export { nodeColors, flowNodeRole, isProcessFlowchart } from '../lib/palette.js';
+export { nodeColors, edgeColors, flowNodeRole, isProcessFlowchart } from '../lib/palette.js';

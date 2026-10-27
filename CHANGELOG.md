@@ -8,6 +8,13 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 - **The viewer reads flowcharts with the same parser as `omm validate` and `omm diff`** (`src/lib/flowchart.ts`). Before, it dropped edges written as `A -- Yes --> B`, the rest of chains (`a --> b --> c`) and `&` groups, nodes with `[/ /]` or `[[ ]]` shapes, and showed brackets in `([Start])` labels. Edge labels no longer show their quotes. Existing architecture diagrams look the same otherwise.
 - **`balanced-brackets`** no longer reports the flag shape `id>text]`.
+- **Easier-to-follow edges** in the viewer:
+  - Edges in the light theme are darker (`#64748b`) and now have at least 3:1 contrast with the background. The dark theme is unchanged.
+  - Arrowheads are larger and the same size in flowcharts, sequence and state diagrams.
+  - Edge labels, ER cardinalities and state triggers are drawn after all lines, so no line runs over them.
+  - Hovering an element highlights its edges in the light theme too. Before, the highlight was white.
+  - In a compact fan-out grid, edges end on the element's border instead of under it, and edges that would cross another element run along the gap between columns.
+  - Several edges without labels between the same two elements are spread apart, and two-point edges bend in the layout's direction.
 - **Sequence diagrams** no longer write duplicate SVG attributes. This made SVG/PNG export of sequence diagrams fail, and drew `autonumber` digits in the wrong size and color.
 - **Development uses pnpm** (pinned to `pnpm@10.34.6` via `packageManager`). Run `corepack enable`, then `pnpm install`.
   - `pnpm-lock.yaml` replaces `package-lock.json`. It was converted with `pnpm import`, so every dependency version is unchanged.

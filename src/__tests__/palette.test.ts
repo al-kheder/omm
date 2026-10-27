@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  nodeColors, flowNodeRole, isProcessFlowchart, colorSwatches, contrastRatio, CATEGORY_CLASSES,
+  nodeColors, edgeColors, flowNodeRole, isProcessFlowchart, colorSwatches, contrastRatio, CATEGORY_CLASSES,
   type DiagramThemeName,
 } from '../lib/palette.js';
 import { VALID_CLASSDEF_NAMES } from '../lib/validate.js';
@@ -89,5 +89,19 @@ describe('flowchart roles', () => {
 describe('category classes', () => {
   it('are all accepted by omm validate', () => {
     for (const c of CATEGORY_CLASSES) expect(VALID_CLASSDEF_NAMES).toContain(c);
+  });
+});
+
+describe('edge colors', () => {
+  it('keep lines visible and labels readable in both themes', () => {
+    for (const t of THEMES) {
+      const e = edgeColors(t);
+      for (const bg of BACKGROUNDS[t]) expect(contrastRatio(e.line, bg), `${t} line on ${bg}`).toBeGreaterThanOrEqual(3);
+      expect(contrastRatio(e.labelText, e.labelBg), `${t} label`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('keep the original dark theme', () => {
+    expect(edgeColors('dark')).toEqual({ line: '#909090', labelBg: '#000000', labelText: '#aaaaaa' });
   });
 });
