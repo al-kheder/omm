@@ -24,6 +24,23 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **`omm evidence deployment [--json]`** lists the files that say how and where a project is deployed, with the facts read from them:
+  - Dockerfiles (stages, exposed ports, command);
+  - Docker Compose services (image or build, ports, `depends_on`, networks, replicas, environment *keys*);
+  - Kubernetes objects (workloads with images and ports, Services, Ingress routes, CronJobs);
+  - Helm charts, Terraform resources and modules, serverless functions, Procfile processes;
+  - hosting platform files (Vercel, Netlify, Fly.io, Render, Cloudflare, App Engine …);
+  - nginx and Caddy sites and upstreams;
+  - CI/CD deploy jobs with their environment and tools;
+  - packages with commands to install.
+
+  Environment names (development, staging, production …) are gathered from file names, folders, namespaces and CI environments. Routes and selectors that lead nowhere are reported, and so are files that cannot be parsed.
+
+  **Safety:**
+  - `.env` files are listed but never opened;
+  - ConfigMaps, Secrets and environment variables contribute names only;
+  - anything that still looks like a secret is shown as `[redacted]`;
+  - symlinks and dependency folders are skipped.
 - **Architecture diagrams (`architecture-beta`)** for deployment: where software runs and how the running parts connect.
   - **Parsing:**
     - groups (cloud accounts, networks, hosts, containers), nested with `in`;
