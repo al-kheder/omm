@@ -1,9 +1,10 @@
 /**
- * Helpers shared by the per-type diagram parsers (er.ts, sequence.ts, state.ts, architecture.ts).
+ * Helpers shared by the per-type diagram parsers (er.ts, sequence.ts, state.ts, architecture.ts,
+ * class-diagram.ts).
  * Bundled into the viewer too, so keep it dependency-free.
  */
 
-export type DiagramType = 'flowchart' | 'er' | 'sequence' | 'state' | 'architecture' | 'unknown';
+export type DiagramType = 'flowchart' | 'er' | 'sequence' | 'state' | 'architecture' | 'class' | 'unknown';
 
 export interface DiagramLine {
   /** 1-based line number in the original text */
@@ -33,5 +34,6 @@ export function detectDiagramType(text: string): DiagramType {
   if (/^sequenceDiagram(\s|$)/.test(first)) return 'sequence';
   if (/^stateDiagram(-v2)?(\s|$)/.test(first)) return 'state';
   if (/^architecture-beta(\s|$)/.test(first)) return 'architecture';
+  if (/^classDiagram(-v2)?(\s|$)/.test(first)) return 'class';
   return 'unknown';
 }

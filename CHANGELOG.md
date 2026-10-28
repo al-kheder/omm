@@ -24,6 +24,12 @@ All notable changes to this fork. The format follows [Keep a Changelog](https://
 
 ### Added
 
+- **Class diagrams (`classDiagram`)** for type hierarchies, interfaces and domain models.
+  - **Parsing:** types with generics, labels and member bodies; `Name : member` lines; annotations (`<<interface>>`, `<<abstract>>`); every relationship (inheritance, realization, composition, aggregation, association, dependency, lollipop) with cardinalities and labels; namespaces and notes.
+  - **`omm validate`:** reports syntax errors with line numbers (`class-syntax`) and types without relationships (`class-orphan`), and counts types for the size check.
+  - **`omm diff`:** reports added and removed types, relationships and members.
+  - **Viewer:** UML boxes with name, attributes and methods (static underlined, abstract italic), UML arrowheads and diamonds, cardinalities, namespaces and notes. In **color** mode, interfaces and abstract types have their own color.
+  - **`/omm-scan`:** new `type-hierarchy` perspective and "Class Diagram Rules".
 - **`deployment` perspective** in `/omm-scan`: where each part runs and how the running parts connect, drawn as an architecture diagram.
   - `/omm-scan` runs `omm evidence deployment` first, and skips the perspective when there is no evidence.
   - Every group, service and connection must come from a file.

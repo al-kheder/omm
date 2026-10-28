@@ -5,11 +5,12 @@ import { parseSequenceDiagram } from './sequence.js';
 import { parseStateDiagram, stateDisplayId } from './state.js';
 import { parseFlowchart } from './flowchart.js';
 import { parseArchitectureDiagram } from './architecture.js';
+import { parseClassDiagram } from './class-diagram.js';
 
 interface MermaidElement {
   nodes: Set<string>;
   edges: Set<string>;
-  /** ER diagrams only: "entity.attribute" entries, so diffs report attribute changes */
+  /** ER and class diagrams: "entity.attribute" / "Class.member" entries, so diffs report member changes */
   attributes?: Set<string>;
 }
 
@@ -73,6 +74,26 @@ function parseArchitecture(text: string): MermaidElement {
   return { nodes, edges };
 }
 
+/**
+ * Class diagram as nodes (classes), edges ("A <|-- B: label", with cardinalities) and
+ * attributes ("Class.member" for attributes, "Class.method()" for methods).
+ */
+function parseClasses(text: string): MermaidElement {
+  const cd = parseClassDiagram(text);
+  const nodes = new Set(cd.classes.keys());
+  const edges = new Set(cd.relations.map(r => {
+    const from = r.fromCard !== undefined ? `${r.from} "${r.fromCard}"` : r.from;
+    const to = r.toCard !== undefined ? `"${r.toCard}" ${r.to}` : r.to;
+    const edge = `${from} ${r.arrow} ${to}`;
+    return r.label ? `${edge}: ${r.label}` : edge;
+  }));
+  const attributes = new Set<string>();
+  for (const c of cd.classes.values()) {
+    for (const m of [...c.attributes, ...c.methods]) attributes.add(`${c.id}.${m.name}`);
+  }
+  return { nodes, edges, attributes };
+}
+
 // Headers of diagram types without their own parser; dropped so they are not read as a node
 const OTHER_HEADER = /^(classDiagram(-v2)?|gantt|pie|gitGraph|journey|mindmap|timeline|quadrantChart|requirementDiagram|C4\w*|block(-beta)?|sankey(-beta)?|xychart(-beta)?|packet(-beta)?|architecture(-beta)?|kanban)\b.*$/;
 
@@ -92,6 +113,7 @@ function parseFlow(text: string): MermaidElement {
 export function parseMermaid(text: string): MermaidElement {
   const type = detectDiagramType(text);
   if (type === 'architecture') return parseArchitecture(text);
+  if (type === 'class') return parseClasses(text);
   if (type === 'er') return parseEr(text);
   if (type === 'sequence') return parseSequence(text);
   if (type === 'state') return parseState(text);

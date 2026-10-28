@@ -7,6 +7,7 @@ import { parseStateDiagram, stateDisplayId } from './state.js';
 import { parseFlowchart, type FlowShape } from './flowchart.js';
 import { findSecrets } from './secrets.js';
 import { parseArchitectureDiagram } from './architecture.js';
+import { parseClassDiagram } from './class-diagram.js';
 import type { ValidationIssue, ValidationResult } from '../types.js';
 
 // --- Source-of-truth constants ---
@@ -309,6 +310,23 @@ function checkArchitectureDiagram(text: string, issues: ValidationIssue[]): void
   }
 }
 
+function checkClassDiagram(text: string, issues: ValidationIssue[]): void {
+  const cd = parseClassDiagram(text);
+
+  // Rule: class-syntax — anything the parser could not read
+  for (const error of cd.errors) {
+    issues.push({ level: 'error', rule: 'class-syntax', message: error.message, line: error.line });
+  }
+
+  // Rule: class-orphan — a type with no relationship to any other (only when there are several)
+  if (cd.classes.size > 1) {
+    const related = new Set(cd.relations.flatMap(r => [r.from, r.to]));
+    for (const c of cd.classes.values()) {
+      if (!related.has(c.id)) issues.push({ level: 'warning', rule: 'class-orphan', message: `${c.id} has no relationships`, line: c.line });
+    }
+  }
+}
+
 // --- Main validation function ---
 
 export interface ValidateContext {
@@ -328,6 +346,8 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
     checkStateDiagram(text, issues);
   } else if (type === 'architecture') {
     checkArchitectureDiagram(text, issues);
+  } else if (type === 'class') {
+    checkClassDiagram(text, issues);
   } else {
     checkFlowchart(text, type, issues);
   }
@@ -369,7 +389,7 @@ export function validateDiagram(text: string, context?: ValidateContext): Valida
   const parsed = parseMermaid(text);
   const arch = type === 'architecture' ? parseArchitectureDiagram(text) : null;
   const nodeCount = arch ? arch.services.size + arch.junctions.size : parsed.nodes.size;
-  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : type === 'state' ? 'states' : arch ? 'services and junctions' : 'nodes';
+  const unit = type === 'er' ? 'entities' : type === 'sequence' ? 'participants' : type === 'state' ? 'states' : type === 'class' ? 'types' : arch ? 'services and junctions' : 'nodes';
   if (nodeCount > 0 && nodeCount < 3 && (type === 'flowchart' || type === 'unknown')) {
     issues.push({
       level: 'warning',
