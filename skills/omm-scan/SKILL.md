@@ -61,6 +61,7 @@ From the catalog below, choose which perspectives are meaningful for this codeba
 | `orchestration` | Event-driven/queue systems | Publisher, subscriber, broker topology |
 | `storage` | 2+ storage systems | Storage topology (DB, cache, queue, object store) |
 | `data-model` | Database schema, ORM models, persisted file formats | What data exists and how entities relate. Uses an **ER diagram**; see "ER Diagram Rules" |
+| `type-hierarchy` | Object-oriented code with base classes, interfaces, plugin contracts or a domain model in classes | Which types exist, what they inherit or implement, and what they contain or use. Uses a **class diagram**; see "Class Diagram Rules" |
 | `deployment` | `omm evidence deployment` finds deployment files (Docker, Compose, Kubernetes, Helm, Terraform, serverless, hosting platforms, deploy jobs) or a published package | Where each part runs and how the running parts connect. Uses an **architecture diagram**; see "Deployment Diagram Rules" |
 | `business-processes` | User-facing or business workflows in the code (checkout, sign-up, approval, refund, onboarding) | What happens step by step, who does each step and where the process branches. Uses a **process flowchart**; see "Process Flowchart Rules" |
 
@@ -356,6 +357,44 @@ MERMAID
 
 - Keep 3–15 states per diagram. Move the details of a busy state into a composite state or its own child element.
 - Run `omm validate` afterwards. It reports syntax errors with line numbers (unclosed `{`, invalid arrows), states without transitions and transitions without a trigger.
+
+## Class Diagram Rules
+
+Use a `classDiagram` for the `type-hierarchy` perspective, or inside an element whose code is mostly a set of related types (a domain model, a plugin API). It shows types and how they relate. It is not a list of every file.
+
+```mermaid
+classDiagram
+  class Repository~T~ {
+    <<interface>>
+    +find(id) T
+    +save(T entity) void
+  }
+  class Order {
+    +String id
+    +total() Money
+  }
+  Order "1" *-- "1..*" LineItem : contains
+  Customer "1" o-- "*" Order : places
+  OrderRepository ..|> Repository
+  OrderRepository ..> Order : stores
+```
+
+| In the code | Write | Drawn as |
+|---|---|---|
+| `extends` / subclass | `Parent <\|-- Child` | solid line, hollow triangle at the parent |
+| `implements` an interface | `Interface <\|.. Impl` | dashed line, hollow triangle |
+| Owns parts that live and die with it | `Whole *-- Part` | filled diamond at the whole |
+| Holds references it does not own | `Group o-- Member` | hollow diamond |
+| Field pointing to another type | `A --> B` | arrow |
+| Only uses it (parameter, local variable, call) | `A ..> B` | dashed arrow |
+
+- Use the real type names from the code. Mark interfaces and abstract types with `<<interface>>` or `<<abstract>>`, and generics as `Name~T~`.
+- Show only the members that explain the design, at most about 8 per type: public methods and the fields that hold relationships. Leave out getters, setters and framework boilerplate.
+- Add cardinalities for collections (`"1" *-- "*"`) and a label when the reason isn't obvious (`: places`).
+- Group types of one module with `namespace name { … }`. Use `note for Type "…"` for a rule the diagram cannot show.
+- Keep 5–15 types. Split a large model by module into child elements.
+- Types are not child elements unless you document them separately. To link a type to the architecture element that contains it, add a `%% @perspective/element` comment line.
+- Run `omm validate` afterwards. It reports syntax errors with line numbers (`class-syntax`) and types without relationships (`class-orphan`).
 
 ## Deployment Diagram Rules
 

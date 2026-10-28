@@ -27,7 +27,9 @@ export type ColorRole =
   // omm category classes
   | 'error' | 'success' | 'entry' | 'store' | 'external' | 'concern'
   // other diagram types
-  | 'entity' | 'participant' | 'state' | 'note' | 'activation' | 'composite';
+  | 'entity' | 'participant' | 'state' | 'note' | 'activation' | 'composite'
+  // class diagrams: <<interface>> and <<abstract>> types (other types use 'entity')
+  | 'interface';
 
 type Swatch = [bg: string, border: string, text: string];
 
@@ -65,6 +67,7 @@ const COLOR: Record<DiagramThemeName, Record<Exclude<ColorRole, 'neutral'>, Swat
     external:     ['#e6e6ea', '#6b6f80', '#3a3d4a'],
     concern:      ['#fce8ee', '#c43c6a', '#6e1a36'],
     entity:       ['#e8f0fb', '#3b6db3', '#1e3a5f'],
+    interface:    ['#e9eafb', '#4f55c4', '#2a2e7a'],
     participant:  ['#e8f0fb', '#3b6db3', '#1e3a5f'],
     state:        ['#e8f0fb', '#3b6db3', '#1e3a5f'],
     note:         ['#fff8d6', '#8f7400', '#4a3d00'],
@@ -87,6 +90,7 @@ const COLOR: Record<DiagramThemeName, Record<Exclude<ColorRole, 'neutral'>, Swat
     external:     ['#16171c', '#7d8193', '#c9ccd6'],
     concern:      ['#321220', '#e06a92', '#f9dbe6'],
     entity:       ['#0f1f33', '#5b9bd5', '#dbe9f8'],
+    interface:    ['#191b3a', '#7f86e8', '#e1e3fb'],
     participant:  ['#0f1f33', '#5b9bd5', '#dbe9f8'],
     state:        ['#0f1f33', '#5b9bd5', '#dbe9f8'],
     note:         ['#2b2508', '#c9a82a', '#f5ebc0'],
@@ -150,6 +154,11 @@ export function archServiceRole(icon: string | undefined): ColorRole {
   if (name === 'database' || name === 'disk' || /(^|-)(db|database|sql|storage|bucket|s3)(-|$)/.test(name)) return 'data';
   if (name === 'internet') return 'external';
   return 'neutral';
+}
+
+/** Color role of a type in a class diagram: interfaces and abstract types differ from concrete ones */
+export function classNodeRole(annotations: string[]): ColorRole {
+  return annotations.some(a => /^(interface|abstract)$/i.test(a.trim())) ? 'interface' : 'entity';
 }
 
 /** Every role with a color, for tests and documentation */

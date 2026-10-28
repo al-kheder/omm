@@ -91,7 +91,7 @@ AI가 코드베이스를 분석하고 **관점(perspective)** 을 생성합니�
 
 각 element는 최대 7개 필드를 가집니다: `description`, `diagram`, `context`, `constraint`, `concern`, `todo`, `note`.
 
-다이어그램은 플로우차트(`graph` / `flowchart`), 데이터베이스 스키마 같은 데이터 모델을 위한 ER 다이어그램(`erDiagram`), 요청이나 프로토콜의 호출 순서를 위한 시퀀스 다이어그램(`sequenceDiagram`), 생명주기와 상태 머신을 위한 상태 다이어그램(`stateDiagram-v2`), 또는 배포를 위한 아키텍처 다이어그램(`architecture-beta`)입니다. 아키텍처 다이어그램은 각 부분이 어디에서 실행되고 실행 중인 부분이 어떻게 연결되는지 보여 줍니다. 다섯 형식 모두 `omm validate`로 검증되고 뷰어에서 렌더링됩니다. 플로우차트는 비기술 독자를 위한 프로세스 다이어그램으로도 쓸 수 있습니다: 시작/종료, 단계, 예/아니오 결정, 입력/출력, 문서, 하위 프로세스, 역할별 레인(`subgraph`). `deployment` 관점을 만들 때 `/omm-scan`은 먼저 `omm evidence deployment`를 실행해 프로젝트의 Docker, Kubernetes, Terraform, CI, 호스팅 파일과 그 안의 정보를 나열합니다. 비밀 값은 절대 표시하지 않습니다. 이런 파일이 없는 프로젝트에는 배포 다이어그램을 만들지 않습니다.
+다이어그램은 플로우차트(`graph` / `flowchart`), 데이터베이스 스키마 같은 데이터 모델을 위한 ER 다이어그램(`erDiagram`), 요청이나 프로토콜의 호출 순서를 위한 시퀀스 다이어그램(`sequenceDiagram`), 생명주기와 상태 머신을 위한 상태 다이어그램(`stateDiagram-v2`), 타입 계층·인터페이스·도메인 모델을 위한 클래스 다이어그램(`classDiagram`), 또는 배포를 위한 아키텍처 다이어그램(`architecture-beta`)입니다. 아키텍처 다이어그램은 각 부분이 어디에서 실행되고 실행 중인 부분이 어떻게 연결되는지 보여 줍니다. 여섯 형식 모두 `omm validate`로 검증되고 뷰어에서 렌더링됩니다. 플로우차트는 비기술 독자를 위한 프로세스 다이어그램으로도 쓸 수 있습니다: 시작/종료, 단계, 예/아니오 결정, 입력/출력, 문서, 하위 프로세스, 역할별 레인(`subgraph`). `deployment` 관점을 만들 때 `/omm-scan`은 먼저 `omm evidence deployment`를 실행해 프로젝트의 Docker, Kubernetes, Terraform, CI, 호스팅 파일과 그 안의 정보를 나열합니다. 비밀 값은 절대 표시하지 않습니다. 이런 파일이 없는 프로젝트에는 배포 다이어그램을 만들지 않습니다.
 
 ## CLI
 

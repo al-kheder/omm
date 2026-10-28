@@ -5,6 +5,7 @@ export { parseErDiagram, cardinalityText } from '../lib/er.js';
 export { parseSequenceDiagram, messageStyle } from '../lib/sequence.js';
 export { parseStateDiagram, stateDisplayId } from '../lib/state.js';
 export { parseFlowchart } from '../lib/flowchart.js';
-export { nodeColors, edgeColors, flowNodeRole, isProcessFlowchart, archServiceRole } from '../lib/palette.js';
+export { nodeColors, edgeColors, flowNodeRole, isProcessFlowchart, archServiceRole, classNodeRole } from '../lib/palette.js';
 export { FLOW_MOTION, edgeMotion, archEdgeMotion, tripSeconds } from '../lib/flow-motion.js';
 export { parseArchitectureDiagram, archGroupDepth } from '../lib/architecture.js';
+export { parseClassDiagram, classRelationKind } from '../lib/class-diagram.js';

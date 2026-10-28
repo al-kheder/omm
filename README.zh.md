@@ -91,7 +91,7 @@ AI 分析代码库并生成 **视角（perspective）** — 观察架构的不�
 
 每个元素最多包含 7 个字段：`description`、`diagram`、`context`、`constraint`、`concern`、`todo`、`note`。
 
-图表可以是流程图（`graph` / `flowchart`）、用于数据库结构等数据模型的 ER 图（`erDiagram`），用于表示请求或协议中调用顺序的时序图（`sequenceDiagram`）、用于生命周期和状态机的状态图（`stateDiagram-v2`），或用于部署的架构图（`architecture-beta`：每个部分运行在哪里，以及运行中的部分如何连接）。五者都由 `omm validate` 校验，并在查看器中渲染。流程图也可用作面向非技术读者的业务流程图：开始/结束、步骤、是/否判断、输入/输出、文档、子流程，以及每个角色一条泳道（`subgraph`）。生成 `deployment` 视角时，`/omm-scan` 会先运行 `omm evidence deployment`，列出项目中的 Docker、Kubernetes、Terraform、CI 和托管配置文件及其中的信息，且从不显示密钥。没有这类文件的项目不会生成部署图。
+图表可以是流程图（`graph` / `flowchart`）、用于数据库结构等数据模型的 ER 图（`erDiagram`），用于表示请求或协议中调用顺序的时序图（`sequenceDiagram`）、用于生命周期和状态机的状态图（`stateDiagram-v2`）、用于类型层次、接口和领域模型的类图（`classDiagram`），或用于部署的架构图（`architecture-beta`：每个部分运行在哪里，以及运行中的部分如何连接）。六者都由 `omm validate` 校验，并在查看器中渲染。流程图也可用作面向非技术读者的业务流程图：开始/结束、步骤、是/否判断、输入/输出、文档、子流程，以及每个角色一条泳道（`subgraph`）。生成 `deployment` 视角时，`/omm-scan` 会先运行 `omm evidence deployment`，列出项目中的 Docker、Kubernetes、Terraform、CI 和托管配置文件及其中的信息，且从不显示密钥。没有这类文件的项目不会生成部署图。
 
 ## CLI
 

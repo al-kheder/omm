@@ -692,6 +692,7 @@ function renderGroup(cls, classesData, allClasses, level, seen = new Set(), scop
   if (diagramType === 'sequence') return renderSeqGroup(data.diagram, scopedPath);
   if (diagramType === 'state') return renderStateGroup(data.diagram, scopedPath);
   if (diagramType === 'architecture') return renderArchGroup(data.diagram, scopedPath);
+  if (diagramType === 'class') return renderClassGroup(data.diagram, scopedPath);
 
   const parsed = parseFlowchart(data.diagram);
   const {rankdir, nodes, subgraphs} = parsed;
@@ -1099,6 +1100,152 @@ function renderArchGroup(text, scopedPath) {
   for (const j of junctions) {
     const p = g.node(j.id);
     if (p) svg += `<circle cx="${r1(p.x)}" cy="${r1(p.y)}" r="4" fill="${ec}"/>`;
+  }
+
+  return { svgContent: svg, W, H, labelOverlay: '' };
+}
+
+// ── class diagram renderer ────────────────────────────────
+// UML boxes: annotations and name, then attributes, then methods (static underlined,
+// abstract italic). Relationship ends use UML markers; dashed lines stay dashed.
+// Namespaces are dashed boxes; notes are note boxes, linked to their class by a dotted line.
+function classMarkerDefs(uid, color, bg) {
+  const m = (id, w, h, refX, body) => `<marker id="${uid}${id}" markerWidth="${w}" markerHeight="${h}" refX="${refX}" refY="${h / 2}" orient="auto-start-reverse" markerUnits="userSpaceOnUse">${body}</marker>`;
+  return `<defs>
+    ${m('inheritance', 14, 12, 13, `<path d="M1,1 L13,6 L1,11 z" fill="${bg}" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>`)}
+    ${m('composition', 18, 10, 17, `<path d="M1,5 L9,1 L17,5 L9,9 z" fill="${color}" stroke="${color}" stroke-width="1.2" stroke-linejoin="round"/>`)}
+    ${m('aggregation', 18, 10, 17, `<path d="M1,5 L9,1 L17,5 L9,9 z" fill="${bg}" stroke="${color}" stroke-width="1.5" stroke-linejoin="round"/>`)}
+    ${m('lollipop', 12, 12, 11, `<circle cx="6" cy="6" r="5" fill="${bg}" stroke="${color}" stroke-width="1.5"/>`)}
+    ${arrowMarker(uid + 'arrow', color, true)}
+  </defs>`;
+}
+
+function renderClassGroup(text, scopedPath) {
+  const cd = OmmViewer.parseClassDiagram(text);
+  const classes = [...cd.classes.values()];
+  if (!classes.length) return null;
+
+  const PAD = 16, ROW_H = 16, CELL_PAD = 10, NAME_H = 24, ANN_H = 13, SECTION_PAD = 4;
+  const th = theme(), ec = th.edgeColor0;
+  const st = nodeStyle({});
+  const nameFont = '600 12px Inter,system-ui', memberFont = "11px 'SF Mono','Fira Code',monospace", noteFont = '11px Inter,system-ui';
+  const title = c => (c.label || c.id) + (c.generic ? `<${c.generic}>` : '');
+  const isAbstract = c => c.annotations.some(a => /^abstract$/i.test(a)) || c.methods.some(m => m.abstract);
+
+  const dims = {};
+  for (const c of classes) {
+    const head = NAME_H + c.annotations.length * ANN_H;
+    const attrH = Math.max(c.attributes.length * ROW_H, 6) + SECTION_PAD * 2;
+    const methH = Math.max(c.methods.length * ROW_H, 6) + SECTION_PAD * 2;
+    const width = Math.max(110,
+      tw(title(c), nameFont) + CELL_PAD * 2,
+      ...c.annotations.map(a => tw(`«${a}»`, '10px Inter') + CELL_PAD * 2),
+      ...[...c.attributes, ...c.methods].map(m => tw(m.text, memberFont) + CELL_PAD * 2));
+    dims[c.id] = { width: Math.min(340, width), height: head + attrH + methH, head, attrH };
+  }
+  const noteDims = cd.notes.map(n => {
+    const lines = n.text.split('\n');
+    return { lines, width: Math.min(240, Math.max(...lines.map(l => tw(l, noteFont))) + 18), height: lines.length * 15 + 12 };
+  });
+
+  const g = new dagre.graphlib.Graph({ multigraph: true, compound: cd.namespaces.size > 0 });
+  const rankdir = ['BT', 'LR', 'RL'].includes(cd.direction) ? cd.direction : 'TB';
+  g.setGraph({ rankdir, nodesep: 36, ranksep: 64, marginx: PAD, marginy: PAD + 6 });
+  g.setDefaultEdgeLabel(() => ({}));
+  for (const c of classes) g.setNode(c.id, { width: dims[c.id].width, height: dims[c.id].height });
+  for (const ns of cd.namespaces.values()) {
+    g.setNode('__ns_' + ns.id, {});
+    for (const id of ns.classes) if (g.hasNode(id)) g.setParent(id, '__ns_' + ns.id);
+  }
+  // Parents above children: for an inheritance edge drawn `Parent <|-- Child`, lay out Parent first
+  cd.relations.forEach((r, i) => {
+    const label = r.label ? { width: tw(r.label, '10px Inter') + 12, height: 16, labelpos: 'c' } : {};
+    const childFirst = r.toEnd !== 'none' && r.fromEnd === 'none'; // `Child --|> Parent`
+    if (childFirst) g.setEdge(r.to, r.from, label, 'r' + i); else g.setEdge(r.from, r.to, label, 'r' + i);
+  });
+  cd.notes.forEach((n, i) => {
+    g.setNode('__note' + i, noteDims[i]);
+    if (n.for && g.hasNode(n.for)) g.setEdge(n.for, '__note' + i, { minlen: 1 }, 'n' + i);
+  });
+  try { dagre.layout(g); } catch { return null; }
+  const gi = g.graph();
+  const W = r1(gi.width + PAD), H = r1(gi.height + PAD);
+  const uid = 'cl' + Math.random().toString(36).slice(2, 7);
+
+  let svg = classMarkerDefs(uid, ec, th.groupFill);
+  for (const ns of cd.namespaces.values()) {
+    const box = g.node('__ns_' + ns.id);
+    if (!box?.width) continue;
+    const x = r1(box.x - box.width / 2), y = r1(box.y - box.height / 2);
+    const lw = tw(ns.id, '600 10px Inter,system-ui') + 14;
+    svg += `<g class="class-namespace"><rect x="${x}" y="${y}" width="${r1(box.width)}" height="${r1(box.height)}" rx="8" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1.5" stroke-dasharray="6,4"/>
+      <rect x="${r1(x + 10)}" y="${r1(y - 8)}" width="${r1(lw)}" height="16" rx="3" fill="${th.subFill}" stroke="${th.subStroke}" stroke-width="1"/>
+      <text x="${r1(x + 17)}" y="${y}" dominant-baseline="central" font-family="Inter,system-ui" font-size="10" font-weight="600" fill="${th.subLabelFill}">${esc(ns.id)}</text></g>`;
+  }
+
+  // notes and their dotted links
+  const noteSt = colorMode === 'color' ? nodeStyle({}, 'note') : { bg: th.subFill, border: th.subStroke, text: st.text };
+  cd.notes.forEach((n, i) => {
+    const p = g.node('__note' + i), d = noteDims[i];
+    if (!p) return;
+    if (n.for && g.node(n.for)) {
+      const c = g.node(n.for);
+      svg += `<path d="M${r1(c.x)},${r1(c.y)} L${r1(p.x)},${r1(p.y)}" stroke="${th.subStroke}" stroke-width="1" stroke-dasharray="3,3"/>`;
+    }
+    const x = p.x - d.width / 2, y = p.y - d.height / 2;
+    svg += `<path d="M${r1(x)},${r1(y)} H${r1(x + d.width - 10)} L${r1(x + d.width)},${r1(y + 10)} V${r1(y + d.height)} H${r1(x)} Z" fill="${noteSt.bg}" stroke="${noteSt.border}" stroke-width="1"/>`;
+    d.lines.forEach((l, k) => {
+      svg += `<text x="${r1(x + 9)}" y="${r1(y + 13 + k * 15)}" font-family="Inter,system-ui" font-size="11" fill="${noteSt.text}">${esc(l)}</text>`;
+    });
+  });
+
+  // relationships; cardinalities and labels after every line
+  let relLabels = '';
+  cd.relations.forEach((r, i) => {
+    const childFirst = r.toEnd !== 'none' && r.fromEnd === 'none';
+    const ed = g.edge(childFirst ? r.to : r.from, childFirst ? r.from : r.to, 'r' + i);
+    if (!ed?.points?.length) return;
+    const pts = childFirst ? ed.points.slice().reverse() : ed.points; // runs from r.from to r.to
+    const marker = (end, attr) => end !== 'none' ? `${attr}="url(#${uid}${end})"` : '';
+    const dash = r.dashed ? 'stroke-dasharray="5,4"' : '';
+    svg += `<path class="edge-path" d="${smoothPath(pts)}" stroke="${ec}" stroke-width="1.5" fill="none" ${dash} ${marker(r.fromEnd, 'marker-start')} ${marker(r.toEnd, 'marker-end')} data-from="${esc(r.from)}" data-to="${esc(r.to)}"><title>${esc(OmmViewer.classRelationKind(r))}</title></path>`;
+    const card = (p, q, text) => {
+      if (text === undefined) return '';
+      const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
+      const x = r1(p.x + (dx / len) * 22 + (-dy / len) * 11), y = r1(p.y + (dy / len) * 22 + (dx / len) * 11);
+      return `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui" font-size="10" font-weight="600" fill="${th.edgeLabelText}">${esc(text)}</text>`;
+    };
+    relLabels += card(pts[0], pts[1], r.fromCard) + card(pts[pts.length - 1], pts[pts.length - 2], r.toCard);
+    if (r.label) {
+      const mid = ed.x !== undefined ? { x: ed.x, y: ed.y } : pts[Math.floor(pts.length / 2)];
+      const lw = tw(r.label, '10px Inter') + 12, mx = r1(mid.x), my = r1(mid.y);
+      relLabels += `<g class="edge-label"><rect x="${r1(mx - lw / 2)}" y="${my - 8}" width="${lw}" height="16" rx="3" fill="${th.edgeLabelBg}"/>
+        <text x="${mx}" y="${my + 3.5}" text-anchor="middle" font-family="Inter,system-ui" font-size="10" fill="${th.edgeLabelText}">${esc(r.label)}</text></g>`;
+    }
+  });
+  svg += relLabels;
+
+  // types
+  for (const c of classes) {
+    const p = g.node(c.id); if (!p) continue;
+    const d = dims[c.id];
+    const hd = nodeStyle(c, OmmViewer.classNodeRole(c.annotations));
+    const x = r1(p.x - d.width / 2), y = r1(p.y - d.height / 2), w = d.width;
+    const id = esc(scopedPath + '/' + c.id);
+    let body = `<rect class="nshape" x="${x}" y="${y}" width="${r1(w)}" height="${r1(d.height)}" rx="4" fill="${st.bg}" stroke="${hd.border}" stroke-width="2"/>`;
+    if (hd.bg !== st.bg) body += `<path d="M${r1(x + 1)},${r1(y + d.head)} V${r1(y + 4)} Q${r1(x + 1)},${r1(y + 1)} ${r1(x + 4)},${r1(y + 1)} H${r1(x + w - 4)} Q${r1(x + w - 1)},${r1(y + 1)} ${r1(x + w - 1)},${r1(y + 4)} V${r1(y + d.head)} Z" fill="${hd.bg}"/>`;
+    c.annotations.forEach((a, k) => {
+      body += `<text x="${r1(p.x)}" y="${r1(y + 10 + k * ANN_H)}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui" font-size="10" font-style="italic" fill="${hd.text}" opacity="0.8">«${esc(a)}»</text>`;
+    });
+    body += `<text class="node-lbl" x="${r1(p.x)}" y="${r1(y + c.annotations.length * ANN_H + NAME_H / 2)}" text-anchor="middle" dominant-baseline="central" font-family="Inter,system-ui,sans-serif" font-size="12" font-weight="600"${isAbstract(c) ? ' font-style="italic"' : ''} fill="${hd.text}">${esc(title(c))}</text>`;
+    const sep = sy => `<path d="M${x},${r1(sy)} H${r1(x + w)}" stroke="${hd.border}" stroke-width="1"/>`;
+    body += sep(y + d.head) + sep(y + d.head + d.attrH);
+    const rows = (members, top) => members.map((m, k) => {
+      const deco = (m.static ? ' text-decoration="underline"' : '') + (m.abstract ? ' font-style="italic"' : '');
+      return `<text x="${r1(x + CELL_PAD)}" y="${r1(top + SECTION_PAD + ROW_H * k + ROW_H / 2)}" dominant-baseline="central" font-family="'SF Mono','Fira Code',monospace" font-size="11" fill="${st.text}"${deco}>${esc(m.text)}</text>`;
+    }).join('');
+    body += rows(c.attributes, y + d.head) + rows(c.methods, y + d.head + d.attrH);
+    svg += `<g class="reg-node class-type" data-cls="${id}" onclick="event.stopPropagation();window.__openSb('${id}')">${body}</g>`;
   }
 
   return { svgContent: svg, W, H, labelOverlay: '' };
