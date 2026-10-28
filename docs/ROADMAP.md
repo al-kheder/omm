@@ -51,6 +51,7 @@ New Mermaid diagram *types* beyond flowcharts, added one at a time. Design: [des
 | `flowchart` (process) | Business workflows for non-technical readers: start/end, decisions, lanes, SVG/PNG export | **done** (shared parser replaces the viewer's copy) |
 | `architecture-beta` | Deployment: where software runs and how the running parts connect (`deployment` perspective, `omm evidence deployment`) | **done** |
 | `classDiagram` | Type hierarchies and interfaces (`type-hierarchy` perspective) | **done** |
+| `C4Context` / `C4Container` / `C4Component` | System architecture: users, outside systems, containers, components ([plan](./design/system-architecture-diagram.md)) | proposed |
 
 Each type needs:
 
